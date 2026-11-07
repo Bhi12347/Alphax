@@ -161,11 +161,21 @@ function publicUser(u) {
 }
 const fresh = async id => publicUser(await User.findOne({ id }));
 
+// CORS: mini app kisi bhi host se khule, API calls kaam karein
+app.use('/api', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-init-data');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+});
+
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (req, res) => res.send('OK'));
+app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v2' }));
 
 // ---------- USER API ----------
 
