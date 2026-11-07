@@ -28,6 +28,10 @@ const MIN_WITHDRAW = 5000;
 const COOLDOWN = 24 * 60 * 60 * 1000;
 const BOT_USERNAME = 'AlphaXEarnTg_bot';
 
+// YouTube: Submit ke kitni der baad Claim allowed hoga (instant click abuse rokne ke liye).
+// 0 kar do agar delay nahi chahiye.
+const YT_CLAIM_DELAY = 10 * 1000;
+
 // Verification ke liye channels (app khulne par dono join hone zaroori)
 const VERIFY_CHANNELS = [
     { id: '@updatechanneluta', name: 'Channel 1' },
@@ -37,8 +41,8 @@ const VERIFY_CHANNELS = [
 // Telegram task (auto verify)
 const TASK_CHANNEL = { id: '@cryptotech16', name: 'Telegram Channel 2' };
 
-// YouTube tasks (screenshot + claim)
-const TASK_LABEL = { yt1: 'YouTube 1', yt2: 'YouTube 2' };
+// YouTube tasks (Open -> Submit -> Claim)
+const YT_TASKS = ['yt1', 'yt2'];
 
 const WELCOME_TEXT = '🔥 <b>Welcome to AlphaX!</b>\n\n' +
     '⛏️ Claim your Free Rewards every 24 hours.\n\n' +
@@ -79,14 +83,12 @@ const PendingRequest = mongoose.model('PendingRequest', new mongoose.Schema({
     address: { type: String, required: true }
 }));
 
-// YouTube proof: ek user ka ek hi active proof
-// awaiting = Submit ke baad screenshot ka intezar, ready = screenshot mil gaya, Claim karna baaki
-const ProofRequest = mongoose.model('ProofRequest', new mongoose.Schema({
+// YouTube pending claim: userId unique => ek user ka ek waqt mein sirf ek pending claim.
+// Submit par banta hai, Claim par delete hota hai.
+const PendingClaim = mongoose.model('PendingClaim', new mongoose.Schema({
     userId: { type: String, required: true, unique: true },
-    reqId: { type: String, required: true },
     task: { type: String, required: true },
-    status: { type: String, default: 'awaiting' },
-    fileId: { type: String, default: null }
+    createdAt: { type: Number, default: Date.now }
 }));
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -136,6 +138,20 @@ async function checkVerifyChannels(userId) {
     return { ok: missing.length === 0, missing };
 }
 
+// Telegram security check (YouTube Submit/Claim par use hota hai):
+// user verified ho + abhi bhi required channels mein ho.
+// Fail par { error } return karta hai, pass par null.
+async function telegramGuard(user) {
+    if (!user.isVerified) return 'Please verify channels first.';
+    const c = await checkVerifyChannels(user.id);
+    if (c.error) return 'Could not verify right now, please try again shortly';
+    if (!c.ok) {
+        await User.updateOne({ id: user.id }, { isVerified: false });
+        return 'Please join the required channels first!';
+    }
+    return null;
+}
+
 function validateInitData(initData) {
     if (!initData || initData.length > 4096) return null;
     const p = new URLSearchParams(initData);
@@ -172,7 +188,8 @@ async function auth(req, res, next) {
     }
 }
 
-function publicUser(u, proof) {
+// proof: { task, status: 'ready' } => frontend Submit ki jagah Claim button dikhaye
+function publicUser(u, pending) {
     return {
         id: u.id,
         username: u.username,
@@ -185,14 +202,14 @@ function publicUser(u, proof) {
             yt1: !!(u.tasks && u.tasks.yt1),
             yt2: !!(u.tasks && u.tasks.yt2)
         },
-        proof: proof ? { task: proof.task, status: proof.status } : null,
+        proof: pending ? { task: pending.task, status: 'ready' } : null,
         referrals: u.referrals,
         withdrawals: u.withdrawals.slice(0, 50)
     };
 }
 
 async function userView(u) {
-    const p = await ProofRequest.findOne({ userId: u.id });
+    const p = await PendingClaim.findOne({ userId: u.id });
     return publicUser(u, p);
 }
 
@@ -210,7 +227,7 @@ app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (req, res) => res.send('OK'));
-app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v6' }));
+app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v7' }));
 
 // ---------- USER API ----------
 
@@ -291,41 +308,59 @@ app.post('/api/task', auth, wrap(async (req, res) => {
     res.json({ ok: true, data: await userView(done) });
 }));
 
-// YouTube Submit: bot ka chat khulne se pehle proof record hota hai
-app.post('/api/proof/start', auth, wrap(async (req, res) => {
+// ---------- YOUTUBE TASKS (Open -> Submit -> Claim) ----------
+// 1) Open: frontend sirf YouTube link kholta hai (server call ki zaroorat nahi)
+// 2) Submit: pending claim ban jata hai (ek user = ek pending)
+// 3) Claim: reward milta hai, pending delete, task hamesha ke liye done
+
+async function ytSubmit(req, res) {
     const u = req.user;
     const taskId = String(req.body.taskId || '');
-    if (!['yt1', 'yt2'].includes(taskId)) return res.json({ ok: false, error: 'Invalid task' });
-    if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
+    if (!YT_TASKS.includes(taskId)) return res.json({ ok: false, error: 'Invalid task' });
+
+    const guard = await telegramGuard(u);
+    if (guard) return res.json({ ok: false, error: guard });
+
+    // Task pehle claim ho chuka ho to dobara nahi
     if (u.tasks && u.tasks[taskId]) return res.json({ ok: false, error: 'Task already claimed.' });
 
-    const existing = await ProofRequest.findOne({ userId: u.id });
-    if (existing && existing.status === 'ready') {
-        return res.json({ ok: false, error: 'Please claim your pending reward first.' });
+    // Pehle se koi pending claim ho to doosra submit nahi hoga
+    const existing = await PendingClaim.findOne({ userId: u.id });
+    if (existing) {
+        return res.json({
+            ok: false,
+            error: existing.task === taskId
+                ? 'Already submitted. Please tap Claim.'
+                : 'Please claim your pending reward first.'
+        });
     }
 
-    await ProofRequest.findOneAndUpdate(
-        { userId: u.id },
-        {
-            $set: {
-                task: taskId,
-                status: 'awaiting',
-                reqId: 'pf_' + crypto.randomBytes(6).toString('hex'),
-                fileId: null
-            }
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    // unique index userId => race condition mein bhi sirf ek create hoga
+    try {
+        await PendingClaim.create({ userId: u.id, task: taskId, createdAt: Date.now() });
+    } catch (e) {
+        return res.json({ ok: false, error: 'Please claim your pending reward first.' });
+    }
     res.json({ ok: true, data: await userView(u) });
-}));
+}
 
-// YouTube Claim: screenshot aane ke baad user reward leta hai
-app.post('/api/proof/claim', auth, wrap(async (req, res) => {
+async function ytClaim(req, res) {
     const u = req.user;
-    if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
 
-    const pr = await ProofRequest.findOneAndDelete({ userId: u.id, status: 'ready' });
-    if (!pr) return res.json({ ok: false, error: 'Nothing to claim. Submit a screenshot first.' });
+    const guard = await telegramGuard(u);
+    if (guard) return res.json({ ok: false, error: guard });
+
+    const pending = await PendingClaim.findOne({ userId: u.id });
+    if (!pending) return res.json({ ok: false, error: 'Nothing to claim. Tap Submit first.' });
+
+    const wait = pending.createdAt + YT_CLAIM_DELAY - Date.now();
+    if (wait > 0) {
+        return res.json({ ok: false, error: `Please wait ${Math.ceil(wait / 1000)}s and try again.` });
+    }
+
+    // Atomic delete: double-click par bhi reward sirf ek baar
+    const pr = await PendingClaim.findOneAndDelete({ userId: u.id, task: pending.task });
+    if (!pr) return res.json({ ok: false, error: 'Nothing to claim. Tap Submit first.' });
 
     const key = `tasks.${pr.task}`;
     const done = await User.findOneAndUpdate(
@@ -335,7 +370,13 @@ app.post('/api/proof/claim', auth, wrap(async (req, res) => {
     );
     if (!done) return res.json({ ok: false, error: 'Task already claimed.' });
     res.json({ ok: true, data: await userView(done) });
-}));
+}
+
+app.post('/api/yt/submit', auth, wrap(ytSubmit));
+app.post('/api/yt/claim', auth, wrap(ytClaim));
+// Purane frontend ke liye aliases (agar frontend abhi purane URLs use kar raha ho)
+app.post('/api/proof/start', auth, wrap(ytSubmit));
+app.post('/api/proof/claim', auth, wrap(ytClaim));
 
 app.post('/api/withdraw', auth, wrap(async (req, res) => {
     const u = req.user;
@@ -449,35 +490,6 @@ app.post('/api/webhook', async (req, res) => {
                 await sendMsg(chatId, '👑 <b>AlphaX Admin</b>',
                     PUBLIC_URL ? { inline_keyboard: [[{ text: '🔐 Admin Login Panel', url: `${PUBLIC_URL}/admin/login` }]] } : undefined);
             }
-
-        // Screenshot (YouTube proof): user ko Claim ka option milta hai
-        } else if (update.message && Array.isArray(update.message.photo)) {
-            const msg = update.message;
-            const chatId = String(msg.chat.id);
-            if (msg.chat.type !== 'private') return;
-
-            const known = await User.findOne({ id: chatId });
-            if (known && known.isBanned) return;
-
-            const fileId = msg.photo[msg.photo.length - 1].file_id;
-            const p = await ProofRequest.findOneAndUpdate(
-                { userId: chatId, status: 'awaiting' },
-                { $set: { status: 'ready', fileId } },
-                { new: true }
-            );
-            if (!p) {
-                return sendMsg(chatId,
-                    'Please open AlphaX, tap Submit on a YouTube task first, then send the screenshot here.',
-                    undefined, false);
-            }
-
-            // Admin ko sirf record ke liye screenshot jata hai
-            tg('sendPhoto', {
-                chat_id: ADMIN_ID,
-                photo: fileId,
-                caption: `📸 YouTube proof (record)\nTask: ${TASK_LABEL[p.task]}\nUser ID: ${chatId}`
-            });
-            sendMsg(chatId, '✅ Screenshot received! Open AlphaX and tap Claim to get your 500 SHIBA.', undefined, false);
 
         // Withdraw buttons
         } else if (update.callback_query) {
