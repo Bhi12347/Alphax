@@ -155,16 +155,21 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
     </div>
     <div class="verify-card">
         <h3 style="font-size:26px;font-weight:900;color:#fff;margin-bottom:8px;">Verification Required</h3>
-        <p style="font-size:14px;color:#a78bfa;margin-bottom:20px;">Dono channels join karo, phir check karo</p>
+        <p style="font-size:14px;color:#a78bfa;margin-bottom:20px;">Join both channels, then tap Check again</p>
 
         <a href="https://t.me/updatechanneluta" class="channel-item" onclick="return openChannel(event,this)">
             <div class="channel-info"><span class="channel-badge"><i class="fa-solid fa-bullhorn"></i><em>CHANNEL</em></span>
-            <div class="channel-details"><h5>AlphaX Official</h5><span>@updatechanneluta</span></div></div>
+            <div class="channel-details"><h5>Join Channel 1</h5><span>@updatechanneluta</span></div></div>
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        <a href="https://youtube.com/@cryptotech2.1?si=uH5jyLscm2lxMH0n" class="channel-item" onclick="return openChannel(event,this)">
+            <div class="channel-info"><span class="channel-badge"><i class="fa-brands fa-youtube"></i><em>YOUTUBE</em></span>
+            <div class="channel-details"><h5>Subscribe YouTube</h5><span>@cryptotech2.1 (optional)</span></div></div>
             <i class="fa-solid fa-chevron-right"></i>
         </a>
         <a href="https://t.me/paymentchanneluta" class="channel-item" onclick="return openChannel(event,this)">
             <div class="channel-info"><span class="channel-badge"><i class="fa-solid fa-bullhorn"></i><em>CHANNEL</em></span>
-            <div class="channel-details"><h5>Payments Channel</h5><span>@paymentchanneluta</span></div></div>
+            <div class="channel-details"><h5>Join Channel 3</h5><span>@paymentchanneluta</span></div></div>
             <i class="fa-solid fa-chevron-right"></i>
         </a>
 
@@ -230,12 +235,24 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
 
         <div class="card">
             <div class="history-item" style="margin-top:5px;">
-                <div><b>Join AlphaX Official</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <div><b>Join Channel 1</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
                 <button class="btn btn-green" id="task1-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(1,'https://t.me/updatechanneluta')">Start</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Join Payments Channel</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <div><b>Join Channel 3</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
                 <button class="btn btn-green" id="task2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(2,'https://t.me/paymentchanneluta')">Start</button>
+            </div>
+            <div class="history-item" style="margin-top:10px;">
+                <div><b>Join Telegram Channel 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <button class="btn btn-green" id="task3-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(3,'https://t.me/cryptotech16')">Start</button>
+            </div>
+            <div class="history-item" style="margin-top:10px;">
+                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#94a3b8;font-weight:bold;">Optional, no reward</span></div>
+                <button class="btn btn-gold" style="width:auto;padding:8px 18px;font-size:11px;" onclick="openLink('https://youtube.com/@cryptotech2.1?si=uH5jyLscm2lxMH0n')">Open</button>
+            </div>
+            <div class="history-item" style="margin-top:10px;">
+                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#94a3b8;font-weight:bold;">Optional, no reward</span></div>
+                <button class="btn btn-gold" style="width:auto;padding:8px 18px;font-size:11px;" onclick="openLink('https://youtube.com/@loveallah-r4b?si=a56TmO61cBw8F6tT')">Open</button>
             </div>
         </div>
     </div>
@@ -314,7 +331,7 @@ document.getElementById('ref-link').value = 'https://t.me/' + BOT_USERNAME + '?s
 
 // Server call: timeout, retry (sirf retries > 0 par) aur JSON-safe parsing
 async function api(path, body, retries = 0) {
-    if (!initData) return { ok: false, error: 'Bot ke andar "Open AlphaX" button se app kholo.' };
+    if (!initData) return { ok: false, error: 'Please open this app from the bot using the "Open AlphaX" button.' };
     for (let attempt = 0; attempt <= retries; attempt++) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 20000);
@@ -328,14 +345,14 @@ async function api(path, body, retries = 0) {
             const text = await r.text();
             let data;
             try { data = JSON.parse(text); }
-            catch (e) { return { ok: false, error: 'Server busy hai (' + r.status + '), thodi der baad try karo' }; }
+            catch (e) { return { ok: false, error: 'Server is busy (' + r.status + '), please try again shortly' }; }
             if (!r.ok && !data.error) data.error = 'Server error (' + r.status + ')';
             return data;
         } catch (e) {
             if (attempt < retries) { await sleep(3000); continue; }
             return { ok: false, error: e.name === 'AbortError'
-                ? 'Server jaag raha hai, 30 sec baad dobara try karo'
-                : 'Network error, dobara try karo' };
+                ? 'Server is waking up, please try again in 30 seconds'
+                : 'Network error, please try again' };
         } finally {
             clearTimeout(timer);
         }
@@ -398,7 +415,7 @@ async function checkVerification() {
     btn.disabled = false;
 
     if (!r.ok) {
-        showToast(r.error || ('Pehle join karo: ' + ((r.missing || []).join(', '))));
+        showToast(r.error || ('Please join first: ' + ((r.missing || []).join(', '))));
         return;
     }
     setState(r.data);
@@ -415,7 +432,6 @@ async function startApp() {
         setTimeout(() => splash.remove(), 500);
     }
 
-    // Render free plan cold start ke liye /api/me retry ke saath
     const r = await api('/api/me', null, 3);
     if (!r.ok) {
         showVerify();
@@ -502,7 +518,7 @@ function checkMiningTimer() {
 setInterval(checkMiningTimer, 1000);
 
 function updateTaskButtons() {
-    [1, 2].forEach(i => {
+    [1, 2, 3].forEach(i => {
         const b = document.getElementById('task' + i + '-btn');
         if (S && S.tasks && S.tasks['task' + i]) {
             b.innerText = 'Claimed';
@@ -588,4 +604,4 @@ async function requestWithdraw() {
 }
 </script>
 </body>
-    </html>
+            </html>
