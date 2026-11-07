@@ -37,7 +37,7 @@ const VERIFY_CHANNELS = [
 // Telegram task (auto verify)
 const TASK_CHANNEL = { id: '@cryptotech16', name: 'Telegram Channel 2' };
 
-// YouTube tasks (screenshot + admin approval)
+// YouTube tasks (screenshot + claim)
 const TASK_LABEL = { yt1: 'YouTube 1', yt2: 'YouTube 2' };
 
 const WELCOME_TEXT = '🔥 <b>Welcome to AlphaX!</b>\n\n' +
@@ -79,7 +79,8 @@ const PendingRequest = mongoose.model('PendingRequest', new mongoose.Schema({
     address: { type: String, required: true }
 }));
 
-// YouTube proof: ek user ka ek hi active proof (awaiting = screenshot ka intezar, pending = admin review)
+// YouTube proof: ek user ka ek hi active proof
+// awaiting = Submit ke baad screenshot ka intezar, ready = screenshot mil gaya, Claim karna baaki
 const ProofRequest = mongoose.model('ProofRequest', new mongoose.Schema({
     userId: { type: String, required: true, unique: true },
     reqId: { type: String, required: true },
@@ -209,7 +210,7 @@ app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (req, res) => res.send('OK'));
-app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v5' }));
+app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v6' }));
 
 // ---------- USER API ----------
 
@@ -290,7 +291,7 @@ app.post('/api/task', auth, wrap(async (req, res) => {
     res.json({ ok: true, data: await userView(done) });
 }));
 
-// YouTube task: user Submit dabata hai, phir bot ko screenshot bhejta hai
+// YouTube Submit: bot ka chat khulne se pehle proof record hota hai
 app.post('/api/proof/start', auth, wrap(async (req, res) => {
     const u = req.user;
     const taskId = String(req.body.taskId || '');
@@ -298,23 +299,42 @@ app.post('/api/proof/start', auth, wrap(async (req, res) => {
     if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
     if (u.tasks && u.tasks[taskId]) return res.json({ ok: false, error: 'Task already claimed.' });
 
-    try {
-        await ProofRequest.findOneAndUpdate(
-            { userId: u.id, status: { $ne: 'pending' } },
-            {
-                $set: {
-                    task: taskId,
-                    status: 'awaiting',
-                    reqId: 'pf_' + crypto.randomBytes(6).toString('hex'),
-                    fileId: null
-                }
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-    } catch (e) {
-        return res.json({ ok: false, error: 'Your previous screenshot is still under review.' });
+    const existing = await ProofRequest.findOne({ userId: u.id });
+    if (existing && existing.status === 'ready') {
+        return res.json({ ok: false, error: 'Please claim your pending reward first.' });
     }
+
+    await ProofRequest.findOneAndUpdate(
+        { userId: u.id },
+        {
+            $set: {
+                task: taskId,
+                status: 'awaiting',
+                reqId: 'pf_' + crypto.randomBytes(6).toString('hex'),
+                fileId: null
+            }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
     res.json({ ok: true, data: await userView(u) });
+}));
+
+// YouTube Claim: screenshot aane ke baad user reward leta hai
+app.post('/api/proof/claim', auth, wrap(async (req, res) => {
+    const u = req.user;
+    if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
+
+    const pr = await ProofRequest.findOneAndDelete({ userId: u.id, status: 'ready' });
+    if (!pr) return res.json({ ok: false, error: 'Nothing to claim. Submit a screenshot first.' });
+
+    const key = `tasks.${pr.task}`;
+    const done = await User.findOneAndUpdate(
+        { id: u.id, [key]: { $ne: true } },
+        { $set: { [key]: true }, $inc: { balance: TASK_REWARD } },
+        { new: true }
+    );
+    if (!done) return res.json({ ok: false, error: 'Task already claimed.' });
+    res.json({ ok: true, data: await userView(done) });
 }));
 
 app.post('/api/withdraw', auth, wrap(async (req, res) => {
@@ -385,25 +405,6 @@ async function resolveWithdraw(reqId, approve) {
     return { ok: true, pr };
 }
 
-// ---------- YOUTUBE PROOF RESOLVE ----------
-
-async function resolveProof(reqId, approve) {
-    const pr = await ProofRequest.findOneAndDelete({ reqId: String(reqId), status: 'pending' });
-    if (!pr) return { ok: false };
-
-    if (approve) {
-        const key = `tasks.${pr.task}`;
-        await User.updateOne(
-            { id: pr.userId, [key]: { $ne: true } },
-            { $set: { [key]: true }, $inc: { balance: TASK_REWARD } }
-        );
-        sendMsg(pr.userId, `✅ Your ${TASK_LABEL[pr.task]} screenshot is approved. +${TASK_REWARD} SHIBA added!`, undefined, false);
-    } else {
-        sendMsg(pr.userId, `❌ Your ${TASK_LABEL[pr.task]} screenshot was rejected. Please open the app, tap Submit again, and send a clear screenshot.`, undefined, false);
-    }
-    return { ok: true, pr };
-}
-
 // ---------- TELEGRAM WEBHOOK ----------
 
 app.post('/api/webhook', async (req, res) => {
@@ -440,10 +441,8 @@ app.post('/api/webhook', async (req, res) => {
                 }
 
                 const kb = [[
-                    { text: '📢 Channel 1', url: 'https://t.me/updatechanneluta' },
-                    { text: '💳 Channel 3', url: 'https://t.me/paymentchanneluta' }
-                ], [
-                    { text: '📢 Telegram Channel 2', url: 'https://t.me/cryptotech16' }
+                    { text: '📢 Join AlphaX Official', url: 'https://t.me/updatechanneluta' },
+                    { text: '💳 Payments Channel', url: 'https://t.me/paymentchanneluta' }
                 ]];
                 await sendMsg(chatId, WELCOME_TEXT, { inline_keyboard: kb });
             } else if (text === '/admin' && chatId === ADMIN_ID) {
@@ -451,7 +450,7 @@ app.post('/api/webhook', async (req, res) => {
                     PUBLIC_URL ? { inline_keyboard: [[{ text: '🔐 Admin Login Panel', url: `${PUBLIC_URL}/admin/login` }]] } : undefined);
             }
 
-        // Screenshot (YouTube proof)
+        // Screenshot (YouTube proof): user ko Claim ka option milta hai
         } else if (update.message && Array.isArray(update.message.photo)) {
             const msg = update.message;
             const chatId = String(msg.chat.id);
@@ -463,7 +462,7 @@ app.post('/api/webhook', async (req, res) => {
             const fileId = msg.photo[msg.photo.length - 1].file_id;
             const p = await ProofRequest.findOneAndUpdate(
                 { userId: chatId, status: 'awaiting' },
-                { $set: { status: 'pending', fileId } },
+                { $set: { status: 'ready', fileId } },
                 { new: true }
             );
             if (!p) {
@@ -472,37 +471,19 @@ app.post('/api/webhook', async (req, res) => {
                     undefined, false);
             }
 
-            await tg('sendPhoto', {
+            // Admin ko sirf record ke liye screenshot jata hai
+            tg('sendPhoto', {
                 chat_id: ADMIN_ID,
                 photo: fileId,
-                caption: `📸 YouTube proof\nTask: ${TASK_LABEL[p.task]}\nUser ID: ${chatId}`,
-                reply_markup: { inline_keyboard: [[
-                    { text: '✅ Approve', callback_data: `pa_${p.reqId}` },
-                    { text: '❌ Reject', callback_data: `pr_${p.reqId}` }
-                ]] }
+                caption: `📸 YouTube proof (record)\nTask: ${TASK_LABEL[p.task]}\nUser ID: ${chatId}`
             });
-            sendMsg(chatId, '✅ Screenshot received. Admin will review it shortly.', undefined, false);
+            sendMsg(chatId, '✅ Screenshot received! Open AlphaX and tap Claim to get your 500 SHIBA.', undefined, false);
 
-        // Buttons (withdraw aur proof)
+        // Withdraw buttons
         } else if (update.callback_query) {
             const q = update.callback_query;
             const chatId = String(q.message.chat.id);
             const data = q.data || '';
-
-            const pm = data.match(/^(pa|pr)_(pf_[a-f0-9]+)$/);
-            if (pm) {
-                if (chatId !== ADMIN_ID) return tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Unauthorized!' });
-                const approve = pm[1] === 'pa';
-                const r = await resolveProof(pm[2], approve);
-                if (!r.ok) return tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Already handled!' });
-
-                tg('editMessageCaption', {
-                    chat_id: chatId,
-                    message_id: q.message.message_id,
-                    caption: `${approve ? '✅ Approved' : '❌ Rejected'}\nTask: ${TASK_LABEL[r.pr.task]}\nUser ID: ${r.pr.userId}`
-                });
-                return tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Done!' });
-            }
 
             const m = data.match(/^(approve|reject)_(wd_[a-f0-9]+)$/);
             if (!m) return;
