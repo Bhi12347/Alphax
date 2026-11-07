@@ -239,11 +239,11 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
                 <button class="btn btn-green" id="task-tg2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask('tg2','https://t.me/cryptotech16')">Start</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span><span style="font-size:9px;color:#d9b97a;font-weight:600;line-height:1.4;display:block;margin-top:3px;">Subscribe, submit your task &amp; claim your reward!</span></div>
                 <button class="btn btn-green" id="task-yt1-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleYT('yt1','https://youtube.com/@cryptotech2.1?si=A6C0ifRC2he49Rpg')">Open</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span><span style="font-size:9px;color:#d9b97a;font-weight:600;line-height:1.4;display:block;margin-top:3px;">Subscribe, submit your task &amp; claim your reward!</span></div>
                 <button class="btn btn-green" id="task-yt2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleYT('yt2','https://youtube.com/@noor-e-eman-j4x?si=5uLYuYOp139kj9sJ')">Open</button>
             </div>
         </div>
@@ -410,7 +410,7 @@ async function checkVerification() {
     btn.disabled = false;
 
     if (!r.ok) {
-        showToast(r.error || ('Please join first: ' + ((r.missing || []).join(', '))));
+        showToast(r.missing && r.missing.length ? 'Must join all channels and tap Check again.' : (r.error || 'Verification failed'));
         return;
     }
     setState(r.data);
