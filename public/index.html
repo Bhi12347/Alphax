@@ -1,1 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AlphaX - Free SHIBA Mining</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
+<style>
+:root{--gold:#f5c542;--brown1:#82502a;--brown2:#5d3719;--maroon1:#6e3044;--maroon2:#4a1f2d;--ink:#241408;--edge:#3a210f}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;user-select:none}
+body{background:#070b16;color:#fff;display:flex;justify-content:center;min-height:100vh;padding:15px 0 110px;overflow-x:hidden}
+.btn,.dash-title,.wd-title,.title-header,.bal-amount,.wd-bal,.live-amt,.ticker,.plan-pill,.task-pill,.nav-item{font-family:'Russo One',-apple-system,"Segoe UI",Roboto,sans-serif}
 
+#toast-notification{position:fixed;top:15px;left:50%;transform:translateX(-50%) translateY(-120px);background:#0e1426;color:#fff;padding:14px 18px;border-radius:18px;font-size:13px;font-weight:800;display:flex;align-items:center;gap:12px;border:3px solid var(--gold);z-index:999999999;transition:transform .3s;width:92%;max-width:400px}
+#toast-notification.show{transform:translateX(-50%) translateY(0)}
+#toast-notification i{color:#ffd666;background:rgba(245,197,66,.18);padding:8px;border-radius:50%}
+
+#splash-screen{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:999999998;transition:opacity .5s}
+.loader-ring-box{position:relative;width:170px;height:170px;display:flex;justify-content:center;align-items:center}
+.loader-ring{position:absolute;width:170px;height:170px;border:4px solid #112211;border-top:4px solid #00ff66;border-radius:50%;animation:spin 1s linear infinite}
+.loader-logo-img{width:115px;height:115px;border-radius:50%;object-fit:cover;border:2px solid #00ff66;background:#151b26}
+.loading-text{color:#00ff66;font-size:16px;font-weight:800;letter-spacing:5px;margin-top:35px;animation:pulse 1.5s infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+#verification-screen{position:fixed;inset:0;background:linear-gradient(160deg,#3a1030 0%,#0b1020 50%,#050810 100%);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:99999999;padding:20px;text-align:center;overflow-y:auto}
+.verify-logo-box{width:100px;height:100px;background:#000;border-radius:26px;display:flex;justify-content:center;align-items:center;border:3px solid var(--gold);position:relative;z-index:2;box-shadow:0 0 24px rgba(245,197,66,.4);flex-shrink:0}
+.verify-card{background:linear-gradient(180deg,var(--brown1),var(--brown2));border:3px solid var(--gold);box-shadow:0 6px 0 var(--edge);width:100%;max-width:380px;border-radius:36px;padding:50px 20px 24px;margin-top:-45px}
+.channel-item{background:var(--ink);border:3px solid var(--gold);border-radius:22px;padding:12px 16px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;text-decoration:none;color:#f1d69a}
+.channel-info{display:flex;align-items:center;gap:14px;text-align:left}
+.channel-badge{background:linear-gradient(180deg,#f8d66a,#e8a93a);color:#3a2208;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:12px 8px;font-size:16px}
+.channel-badge em{font-style:normal;font-size:9px;font-weight:900;letter-spacing:1px}
+.channel-details h5{font-size:15px;color:#fff;font-family:'Russo One',sans-serif}
+.channel-details span{font-size:13px;color:#f1d69a}
+
+.app-container{width:100%;max-width:420px;background:linear-gradient(180deg,#0a0f1d,#070b16);padding:15px;text-align:center;position:relative}
+.card,.live-card,.stat,.lvl-card,.history-item,.user-profile-header{background:linear-gradient(180deg,var(--brown1),var(--brown2));border:3px solid var(--gold);border-radius:28px;box-shadow:0 6px 0 var(--edge),0 10px 24px rgba(0,0,0,.5)}
+.balance-card,.wd-card{background:linear-gradient(180deg,var(--maroon1),var(--maroon2));border:3px solid var(--gold);border-radius:30px;box-shadow:0 6px 0 var(--edge),0 10px 24px rgba(0,0,0,.5)}
+.user-profile-header{display:flex;justify-content:space-between;align-items:center;border-radius:24px;padding:12px 15px;margin-bottom:15px}
+.user-info-left{display:flex;align-items:center;gap:10px;text-align:left}
+.user-avatar{width:42px;height:42px;border-radius:50%;background:var(--ink);color:#f5a623;display:flex;justify-content:center;align-items:center;font-size:18px;border:2px solid #f5a623}
+.user-details h4{font-size:14px;font-weight:800}
+.user-details span{font-size:11px;color:var(--gold);font-weight:700}
+.bot-brand-right{display:flex;align-items:center;gap:8px}
+.bot-mini-logo{width:34px;height:34px;border-radius:50%;background:#000;border:1px solid #00ff66;overflow:hidden}
+.bot-mini-logo img{width:100%;height:100%;object-fit:cover}
+.bot-brand-right span{font-size:14px;font-weight:900;color:#f5a623}
+
+.title-header{font-size:20px;font-weight:900;margin:10px 0 18px;text-align:left;display:flex;align-items:center;gap:8px}
+.card{padding:18px;margin-bottom:15px;text-align:left}
+.card-label{font-size:11px;color:var(--gold);font-weight:900;letter-spacing:2px;display:block}
+
+.btn{border:none;border-radius:22px;text-transform:uppercase;letter-spacing:1px;font-size:14px;padding:16px 14px;width:100%;text-align:center;cursor:pointer;position:relative;transition:transform .08s,box-shadow .08s;box-shadow:0 6px 0 var(--sh,#8a5a12),inset 0 2px 0 rgba(255,255,255,.45)}
+.btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--sh,#8a5a12)}
+.btn-gold,#verify-btn{--sh:#9a6a17;background:linear-gradient(180deg,#fbe08a,#e8a93a);color:#3a2208}
+#verify-btn{padding:18px;font-size:15px;margin-top:16px}
+.btn-green{--sh:#1f6b3a;background:linear-gradient(180deg,#7bdc97,#3fa862);color:#fff}
+.btn-dark,.btn-purple{--sh:#1c3f9a;background:linear-gradient(180deg,#6fa5f7,#2f64d8);color:#fff}
+.btn-disabled{--sh:#241408;background:linear-gradient(180deg,#6a4a2a,#4d3219);color:#b79a6e;cursor:not-allowed}
+.btn-collect{--sh:#1f6b3a;background:linear-gradient(180deg,#7bdc97,#3fa862);color:#fff;width:auto;padding:15px 16px;border-radius:20px}
+.btn-collect.btn-disabled{--sh:#241408;background:linear-gradient(180deg,#6a4a2a,#4d3219);color:#b79a6e}
+
+.task-pills{display:flex;gap:8px;margin-bottom:15px}
+.task-pill{flex:1;padding:10px;font-size:11px;border-radius:16px;background:var(--ink);border:2px solid var(--gold);color:#f1d69a;text-align:center;box-shadow:0 4px 0 var(--edge);cursor:pointer}
+.task-pill.active{background:linear-gradient(180deg,#fbe08a,#e8a93a);color:#3a2208}
+.history-item{background:#3a2210;border-width:2px;border-radius:18px;box-shadow:none;padding:12px;margin-top:8px;font-size:12px;display:flex;justify-content:space-between;align-items:center;text-align:left}
+
+.trx-input-wrapper{position:relative;display:flex;align-items:center;margin:8px 0 12px}
+.trx-input-wrapper input{width:100%;padding:14px 64px 14px 14px;font-size:12px;font-weight:bold;background:var(--ink);border:3px solid var(--gold);border-radius:20px;color:#fff}
+.trx-copy-btn{position:absolute;right:8px;background:linear-gradient(180deg,#6fa5f7,#2f64d8);color:#fff;border:none;padding:8px 14px;border-radius:14px;box-shadow:0 3px 0 #1c3f9a;cursor:pointer}
+.max-btn{background:linear-gradient(180deg,#fbe08a,#e8a93a);color:#3a2208;border:none;box-shadow:0 3px 0 #9a6a17;font-family:'Russo One',sans-serif;font-size:11px;cursor:pointer}
+
+.tab-content{display:none}
+.tab-content.active{display:block}
+.eyebrow{font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:800;text-align:left;margin:6px 0 2px}
+.dash-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.dash-title{font-size:30px;font-weight:900}
+.plan-pill{display:flex;align-items:center;gap:8px;background:#0e1426;border:2px solid var(--gold);color:#ffe9a8;border-radius:20px;padding:10px 14px;font-size:12px;box-shadow:0 4px 0 var(--edge)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#10d98c}
+.balance-card{padding:20px;margin-bottom:14px;text-align:left}
+.bal-top{display:flex;justify-content:space-between;align-items:center}
+.bal-label{font-size:12px;letter-spacing:3px;color:var(--gold);font-weight:800}
+.earn-pill,.active-pill{display:inline-flex;align-items:center;gap:6px;background:#17472a;border:2px solid #4fb36e;color:#8cf0a8;font-size:11px;font-weight:800;padding:5px 10px;border-radius:14px}
+.bal-amount{text-align:center;font-size:36px;font-weight:900;margin:22px 0 18px}
+.bal-amount small{font-size:14px;color:#cbd5e1}
+.bal-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bal-actions .btn{padding:15px 6px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stat{border-radius:22px;border-width:2px;box-shadow:0 4px 0 var(--edge);padding:14px 6px;text-align:center}
+.stat span{display:block;font-size:9px;letter-spacing:1.5px;color:var(--gold);font-weight:800;margin-bottom:8px}
+.stat b{font-size:18px;font-weight:900}
+.stat-note{font-size:11px;color:#f1d69a;margin:12px 0 14px;font-family:monospace}
+.live-card{display:flex;align-items:center;gap:12px;padding:16px;text-align:left}
+.live-icon{width:54px;height:54px;border-radius:16px;background:var(--ink);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;color:#fbbf24;font-size:22px;flex-shrink:0}
+.live-mid{flex:1;min-width:0}
+.live-head{font-size:12px;font-weight:900;letter-spacing:1px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.live-amt{font-size:20px;font-weight:900;margin-top:4px}
+.live-amt small{font-size:11px;color:#cbd5e1}
+.live-sub{font-size:10px;color:#f1d69a;margin-top:2px}
+.lvl-card{padding:16px;text-align:center;margin-bottom:14px}
+.lvl-card span{display:block;font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:800}
+.lvl-card b{display:block;font-size:28px;margin:6px 0}
+.lvl-card em{font-style:normal;font-size:12px;color:#f1d69a;font-weight:700}
+.ref-line{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#f1d69a;margin-top:14px}
+.ref-line b{font-size:14px;color:#fff}
+.ref-head,.ref-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:6px;align-items:center;font-size:11px;padding:10px 8px;text-align:left}
+.wd-head,.wd-r{display:grid;grid-template-columns:1fr 1fr 1.2fr 1fr;gap:6px;align-items:center;font-size:11px;padding:10px 8px;text-align:left}
+.ref-head,.wd-head{background:#6b4119;border:2px solid #9a6a2a;color:var(--gold);border-radius:16px;font-weight:900}
+.ref-row,.wd-r{color:#f6e5bf;border-bottom:1px solid #6b4119;font-weight:700}
+#ref-list,#withdraw-history-list{background:#3a2210;border:2px solid #9a6a2a;border-radius:18px;margin-top:6px;overflow:hidden}
+.ref-ok,.st-paid{background:#17472a;border:2px solid #4fb36e;color:#8cf0a8;border-radius:14px;padding:4px 6px;text-align:center;font-weight:800;font-size:10px}
+.st-pending{background:#5a3a12;border:2px solid #c9962b;color:#ffd666;border-radius:14px;padding:4px 6px;text-align:center;font-weight:800;font-size:10px}
+.st-declined{background:#5a1a1a;border:2px solid #c94b4b;color:#ff9b9b;border-radius:14px;padding:4px 6px;text-align:center;font-weight:800;font-size:10px}
+.ref-empty{text-align:center;color:#d9b97a;font-size:12px;padding:22px 0}
+.wd-title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:900;text-align:left;margin:8px 0 14px}
+.wd-title i{width:5px;height:26px;background:var(--gold);border-radius:3px;flex-shrink:0}
+.wd-card{padding:20px;text-align:left}
+.wd-bal{text-align:center;font-size:30px;font-weight:900;margin:10px 0 20px}
+.wd-input{display:flex;align-items:center;background:var(--ink);border:3px solid var(--gold);border-radius:20px;margin:8px 0 16px}
+.wd-input i{margin-left:14px;color:var(--gold);font-size:18px}
+.wd-input i.ok{color:#10d98c}
+.wd-input input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:#fff;font-size:14px;font-weight:bold;padding:16px 10px;user-select:text}
+.wd-input .max-btn{margin-right:10px;padding:8px 14px;border-radius:10px}
+.wd-row{display:flex;justify-content:space-between;align-items:center}
+.wd-min{font-size:11px;color:#f1d69a;font-weight:700}
+
+.bottom-nav{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);width:92%;max-width:400px;background:linear-gradient(180deg,var(--brown1),var(--brown2));border:3px solid var(--gold);border-radius:30px;box-shadow:0 6px 0 var(--edge),0 10px 30px rgba(0,0,0,.7);display:flex;justify-content:space-around;align-items:center;padding:8px 10px;z-index:999999}
+.nav-item{color:#e9c98f;display:flex;flex-direction:column;align-items:center;font-size:10px;gap:4px;flex:1;cursor:pointer}
+.nav-item i{font-size:20px}
+.nav-item.active{color:#fff}
+.nav-item.active i{color:var(--gold)}
+.nav-mining-btn{width:52px;height:52px;background:linear-gradient(180deg,#fbe08a,#e8a93a);border-radius:18px;display:flex;justify-content:center;align-items:center;color:#3a2208;font-size:22px;margin-top:-24px;border:5px solid var(--edge);box-shadow:0 0 0 3px var(--gold),0 0 22px rgba(245,197,66,.5)}
+</style>
+</head>
+<body>
+
+<div id="toast-notification"><i class="fa-solid fa-check"></i><span id="toast-msg">OK</span></div>
+
+<div id="splash-screen">
+    <div class="loader-ring-box">
+        <div class="loader-ring"></div>
+        <img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png?v=032" class="loader-logo-img" alt="SHIBA">
+    </div>
+    <div class="loading-text">LOADING...</div>
+</div>
+
+<div id="verification-screen">
+    <div class="verify-logo-box">
+        <svg viewBox="0 0 100 100" width="70" height="70">
+            <polygon points="50,12 88,86 12,86" fill="none" stroke="#39ff14" stroke-width="6" stroke-linejoin="round"/>
+            <line x1="30" y1="62" x2="70" y2="62" stroke="#39ff14" stroke-width="6"/>
+        </svg>
+    </div>
+    <div class="verify-card">
+        <h3 style="font-size:26px;font-weight:900;color:#fff;margin-bottom:8px;">Verification Required</h3>
+        <p style="font-size:14px;color:#a78bfa;margin-bottom:20px;">Dono channels join karo, phir check karo</p>
+
+        <a href="https://t.me/updatechanneluta" class="channel-item" onclick="return openChannel(event,this)">
+            <div class="channel-info"><span class="channel-badge"><i class="fa-solid fa-bullhorn"></i><em>CHANNEL</em></span>
+            <div class="channel-details"><h5>AlphaX Official</h5><span>@updatechanneluta</span></div></div>
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        <a href="https://t.me/paymentchanneluta" class="channel-item" onclick="return openChannel(event,this)">
+            <div class="channel-info"><span class="channel-badge"><i class="fa-solid fa-bullhorn"></i><em>CHANNEL</em></span>
+            <div class="channel-details"><h5>Payments Channel</h5><span>@paymentchanneluta</span></div></div>
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+
+        <button class="btn" id="verify-btn" onclick="checkVerification()">I’ve joined — Check again</button>
+    </div>
+</div>
+
+<div class="app-container">
+
+    <div class="user-profile-header">
+        <div class="user-info-left">
+            <div class="user-avatar"><i class="fa-solid fa-user"></i></div>
+            <div class="user-details">
+                <h4 id="user-display-name">Free User</h4>
+                <span id="user-id-text">ID: -</span>
+            </div>
+        </div>
+        <div class="bot-brand-right">
+            <div class="bot-mini-logo"><img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png?v=032" alt="Logo"></div>
+            <span>AlphaX 🔥</span>
+        </div>
+    </div>
+
+    <div id="tab-home" class="tab-content active">
+        <div class="eyebrow">SHIBA FREE MINER</div>
+        <div class="dash-row">
+            <div class="dash-title">Dashboard</div>
+            <div class="plan-pill"><i class="dot"></i> Active</div>
+        </div>
+
+        <div class="balance-card">
+            <div class="bal-top"><span class="bal-label">TOTAL BALANCE</span><span class="earn-pill"><i class="dot"></i> Earnings</span></div>
+            <div class="bal-amount"><span id="main-balance">0.0000</span> <small>SHIBA</small></div>
+            <div class="bal-actions">
+                <button class="btn btn-gold" onclick="switchTab('tasks')"><i class="fa-solid fa-gift"></i> Free Shiba</button>
+                <button class="btn btn-gold" onclick="switchTab('withdraw')"><i class="fa-solid fa-arrow-up-from-bracket"></i> Withdraw</button>
+            </div>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat"><span>MINING PLAN</span><b>Active</b></div>
+            <div class="stat"><span>DAILY REWARD</span><b>1000</b></div>
+            <div class="stat"><span>STATUS</span><b style="color:#8cf0a8;">Active</b></div>
+        </div>
+        <div class="stat-note">+1000 SHIBA / day (No Investment Required)</div>
+
+        <div class="live-card">
+            <div class="live-icon"><i class="fa-solid fa-hammer"></i></div>
+            <div class="live-mid">
+                <div class="live-head">LIVE MINING <span class="active-pill"><i class="dot"></i> Active</span></div>
+                <div class="live-amt"><span id="live-amount">0.0000</span> <small>SHIBA</small></div>
+                <div class="live-sub" id="live-sub">Loading...</div>
+            </div>
+            <button class="btn btn-collect" id="claim-btn" onclick="claimFreeMining()">Collect</button>
+        </div>
+    </div>
+
+    <div id="tab-tasks" class="tab-content">
+        <div class="title-header"><i class="fa-solid fa-clipboard-list" style="color:#f5c542;"></i> Tasks</div>
+        <div class="task-pills">
+            <div class="task-pill active"><i class="fa-solid fa-paper-plane"></i> Social</div>
+        </div>
+
+        <div class="card">
+            <div class="history-item" style="margin-top:5px;">
+                <div><b>Join AlphaX Official</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <button class="btn btn-green" id="task1-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(1,'https://t.me/updatechanneluta')">Start</button>
+            </div>
+            <div class="history-item" style="margin-top:10px;">
+                <div><b>Join Payments Channel</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
+                <button class="btn btn-green" id="task2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(2,'https://t.me/paymentchanneluta')">Start</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-earn" class="tab-content">
+        <div class="title-header"><i class="fa-solid fa-users" style="color:#f5c542;"></i> Referrals</div>
+        <p style="font-size:12px;color:#94a3b8;margin:-8px 0 14px;text-align:left;">Invite friends and earn <b style="color:#f5c542;">500 SHIBA</b> for every friend who joins and verifies!</p>
+
+        <div class="lvl-card"><span>LEVEL 1</span><b>500 SHIBA</b><em>Direct Friends</em></div>
+
+        <div class="card">
+            <span class="card-label">YOUR EXCLUSIVE REFERRAL LINK</span>
+            <div class="trx-input-wrapper">
+                <input type="text" id="ref-link" readonly>
+                <button class="trx-copy-btn" onclick="copyRefLink()"><i class="fa-solid fa-copy"></i></button>
+            </div>
+            <button class="btn btn-gold" onclick="shareRefLink()" style="margin-top:5px;font-size:15px;"><i class="fa-solid fa-link"></i> SHARE LINK</button>
+            <div class="ref-line"><span>Total Team Members:</span><b id="ref-total">0 Friends</b></div>
+            <div class="ref-line"><span>Total Referral Bonus Earned:</span><b id="ref-bonus" style="color:#8cf0a8;">0 SHIBA</b></div>
+        </div>
+
+        <div class="card">
+            <span class="card-label" style="text-align:center;margin-bottom:12px;">MY REFERRALS TEAM LIST</span>
+            <div class="ref-head"><span>User ID</span><span>Joined</span><span>Bonus</span><span>Status</span></div>
+            <div id="ref-list"></div>
+        </div>
+    </div>
+
+    <div id="tab-withdraw" class="tab-content">
+        <div class="wd-title"><i></i> WITHDRAW SHIBA TO EXTERNAL WALLET</div>
+        <div class="card wd-card">
+            <div class="card-label" style="text-align:center;">TOTAL AVAILABLE BALANCE</div>
+            <div class="wd-bal"><span id="withdraw-balance">0.0000</span> SHIBA</div>
+            <label class="card-label">SHIBA BEP-20 (BSC) ADDRESS</label>
+            <div class="wd-input"><i class="fa-solid fa-wallet" id="addr-icon"></i><input type="text" id="withdraw-address" placeholder="0x... wallet address" oninput="checkAddr()"></div>
+            <div class="wd-row"><label class="card-label">AMOUNT TO WITHDRAW</label><span class="wd-min">Min: 5000 SHIBA</span></div>
+            <div class="wd-input"><i class="fa-solid fa-coins"></i><input type="number" id="withdraw-amount" placeholder="5000" min="5000"><button type="button" class="max-btn" onclick="setMaxWithdraw()">MAX</button></div>
+            <button class="btn btn-gold" style="margin-top:6px;font-size:15px;" onclick="requestWithdraw()">CONFIRM WITHDRAWAL</button>
+        </div>
+        <div class="card">
+            <span class="card-label" style="margin-bottom:12px;"><i class="fa-solid fa-file-invoice" style="color:#f5c542;"></i> MY WITHDRAWAL REQUESTS</span>
+            <div class="wd-head"><span>Date</span><span>Wallet</span><span>Amount</span><span>Status</span></div>
+            <div id="withdraw-history-list"><div class="ref-empty">No withdrawal requests yet.</div></div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a class="nav-item active" id="nav-home" onclick="switchTab('home')"><i class="fa-solid fa-microchip"></i><span>Core</span></a>
+        <a class="nav-item" id="nav-tasks" onclick="switchTab('tasks')"><i class="fa-solid fa-clipboard-list"></i><span>Tasks</span></a>
+        <a class="nav-item" id="nav-mining" onclick="claimFreeMining()"><div class="nav-mining-btn"><i class="fa-solid fa-bolt"></i></div><span>Collect</span></a>
+        <a class="nav-item" id="nav-earn" onclick="switchTab('earn')"><i class="fa-solid fa-users"></i><span>Referrals</span></a>
+        <a class="nav-item" id="nav-withdraw" onclick="switchTab('withdraw')"><i class="fa-solid fa-wallet"></i><span>Wallet</span></a>
+    </nav>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+
+const BOT_USERNAME = 'AlphaXEarnTg_bot';
+const COOLDOWN = 24 * 3600 * 1000;
+const initData = (tg && tg.initData) || '';
+const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+const userId = tgUser && tgUser.id ? tgUser.id : '';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let S = null;
+let timeOffset = 0;
+const taskState = {};
+let verifying = false;
+
+document.getElementById('user-display-name').innerText = (tgUser && tgUser.first_name) || 'Free User';
+document.getElementById('user-id-text').innerText = 'ID: ' + (userId || '-');
+document.getElementById('ref-link').value = 'https://t.me/' + BOT_USERNAME + '?start=' + userId;
+
+// Server call: timeout, retry (sirf retries > 0 par) aur JSON-safe parsing
+async function api(path, body, retries = 0) {
+    if (!initData) return { ok: false, error: 'Bot ke andar "Open AlphaX" button se app kholo.' };
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20000);
+        try {
+            const r = await fetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-init-data': initData },
+                body: JSON.stringify(body || {}),
+                signal: ctrl.signal
+            });
+            const text = await r.text();
+            let data;
+            try { data = JSON.parse(text); }
+            catch (e) { return { ok: false, error: 'Server busy hai (' + r.status + '), thodi der baad try karo' }; }
+            if (!r.ok && !data.error) data.error = 'Server error (' + r.status + ')';
+            return data;
+        } catch (e) {
+            if (attempt < retries) { await sleep(3000); continue; }
+            return { ok: false, error: e.name === 'AbortError'
+                ? 'Server jaag raha hai, 30 sec baad dobara try karo'
+                : 'Network error, dobara try karo' };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+}
+
+function setState(d) {
+    S = d;
+    timeOffset = d.serverTime - Date.now();
+    renderAll();
+}
+
+function renderAll() {
+    if (!S) return;
+    document.getElementById('main-balance').innerText = S.balance.toFixed(4);
+    document.getElementById('withdraw-balance').innerText = S.balance.toFixed(4);
+    updateTaskButtons();
+    renderReferrals();
+    renderHistory();
+    checkMiningTimer();
+}
+
+function showToast(m) {
+    const t = document.getElementById('toast-notification');
+    document.getElementById('toast-msg').innerText = m;
+    t.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+function showVerify() { document.getElementById('verification-screen').style.display = 'flex'; }
+function hideVerify() { document.getElementById('verification-screen').style.display = 'none'; }
+
+function openLink(url) {
+    try {
+        if (tg && tg.openTelegramLink && url.indexOf('https://t.me/') === 0) { tg.openTelegramLink(url); return; }
+    } catch (e) {}
+    try {
+        if (tg && tg.openLink) { tg.openLink(url); return; }
+    } catch (e) {}
+    window.open(url, '_blank');
+}
+
+function openChannel(e, el) {
+    e.preventDefault();
+    openLink(el.getAttribute('href'));
+    return false;
+}
+
+async function checkVerification() {
+    if (verifying) return;
+    verifying = true;
+    const btn = document.getElementById('verify-btn');
+    btn.innerText = 'Checking...';
+    btn.disabled = true;
+
+    const r = await api('/api/verify');
+
+    verifying = false;
+    btn.innerText = 'I’ve joined — Check again';
+    btn.disabled = false;
+
+    if (!r.ok) {
+        showToast(r.error || ('Pehle join karo: ' + ((r.missing || []).join(', '))));
+        return;
+    }
+    setState(r.data);
+    hideVerify();
+    switchTab('home');
+    showToast('Verification successful!');
+}
+
+async function startApp() {
+    await sleep(1500);
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.remove(), 500);
+    }
+
+    // Render free plan cold start ke liye /api/me retry ke saath
+    const r = await api('/api/me', null, 3);
+    if (!r.ok) {
+        showVerify();
+        showToast(r.error || 'Server error');
+        return;
+    }
+    setState(r.data);
+    if (r.data.isVerified) {
+        hideVerify();
+        switchTab('home');
+    } else {
+        showVerify();
+    }
+}
+startApp();
+
+function copyRefLink() {
+    const i = document.getElementById('ref-link');
+    i.select();
+    try { navigator.clipboard.writeText(i.value); } catch (e) {}
+    showToast('Referral link copied!');
+}
+
+function shareRefLink() {
+    openLink('https://t.me/share/url?url=' + encodeURIComponent(document.getElementById('ref-link').value) +
+        '&text=' + encodeURIComponent('Get free SHIBA every day! 🐕'));
+}
+
+function renderReferrals() {
+    const list = (S && S.referrals) || [];
+    const total = list.reduce((t, r) => t + Number(r.bonus || 0), 0);
+    document.getElementById('ref-total').innerText = list.length + (list.length === 1 ? ' Friend' : ' Friends');
+    document.getElementById('ref-bonus').innerText = total.toLocaleString() + ' SHIBA';
+
+    const box = document.getElementById('ref-list');
+    if (!list.length) {
+        box.innerHTML = '<div class="ref-empty">No referrals yet. Share your link to start earning!</div>';
+        return;
+    }
+    box.innerHTML = list.map(r =>
+        '<div class="ref-row"><span>' + String(r.id).replace(/[^0-9]/g, '') + '</span><span>' +
+        new Date(r.date).toLocaleDateString() + '</span><span style="color:#8cf0a8;">+' + Number(r.bonus) +
+        '</span><span class="ref-ok">✓ Active</span></div>'
+    ).join('');
+}
+
+async function claimFreeMining() {
+    if (!S || !S.isVerified) { showVerify(); return; }
+    const left = COOLDOWN - (Date.now() + timeOffset - S.lastClaimTime);
+    if (left > 0) {
+        showToast('Next claim in ' + Math.ceil(left / 3600000) + ' hours!');
+        return;
+    }
+    const r = await api('/api/claim');
+    if (!r.ok) { showToast(r.error || 'Error'); return; }
+    setState(r.data);
+    showToast('+1000 SHIBA claimed!');
+}
+
+function checkMiningTimer() {
+    if (!S) return;
+    const btn = document.getElementById('claim-btn');
+    const amt = document.getElementById('live-amount');
+    const sub = document.getElementById('live-sub');
+    const elapsed = Date.now() + timeOffset - S.lastClaimTime;
+
+    if (elapsed >= COOLDOWN) {
+        amt.innerText = '1000.0000';
+        sub.innerText = 'Ready to collect';
+        btn.innerText = 'Collect';
+        btn.className = 'btn btn-collect';
+    } else {
+        amt.innerText = (1000 * elapsed / COOLDOWN).toFixed(4);
+        const left = COOLDOWN - elapsed;
+        const p = n => String(n).padStart(2, '0');
+        sub.innerText = 'Next collect in ' +
+            p(Math.floor(left / 3600000)) + ':' +
+            p(Math.floor(left % 3600000 / 60000)) + ':' +
+            p(Math.floor(left % 60000 / 1000));
+        btn.innerText = 'Mining';
+        btn.className = 'btn btn-collect btn-disabled';
+    }
+}
+setInterval(checkMiningTimer, 1000);
+
+function updateTaskButtons() {
+    [1, 2].forEach(i => {
+        const b = document.getElementById('task' + i + '-btn');
+        if (S && S.tasks && S.tasks['task' + i]) {
+            b.innerText = 'Claimed';
+            b.className = 'btn btn-disabled';
+        } else if (taskState[i] === 'CHECK') {
+            b.innerText = 'Check';
+            b.className = 'btn btn-dark';
+        } else {
+            b.innerText = 'Start';
+            b.className = 'btn btn-green';
+        }
+        b.style.width = 'auto';
+        b.style.padding = '8px 18px';
+        b.style.fontSize = '11px';
+    });
+}
+
+async function handleTask(id, link) {
+    if (!S || !S.isVerified) { showVerify(); return; }
+    if (S.tasks['task' + id]) return;
+
+    if (taskState[id] !== 'CHECK') {
+        openLink(link);
+        taskState[id] = 'CHECK';
+        updateTaskButtons();
+        return;
+    }
+    const r = await api('/api/task', { taskId: id });
+    if (!r.ok) { showToast(r.error || 'Error'); return; }
+    setState(r.data);
+    showToast('+500 SHIBA claimed!');
+}
+
+function renderHistory() {
+    const box = document.getElementById('withdraw-history-list');
+    const h = (S && S.withdrawals) || [];
+    if (!h.length) {
+        box.innerHTML = '<div class="ref-empty">No withdrawal requests yet.</div>';
+        return;
+    }
+    box.innerHTML = h.map(i => {
+        const st = String(i.status).toUpperCase();
+        const cls = st === 'PAID' ? 'st-paid' : st === 'DECLINED' ? 'st-declined' : 'st-pending';
+        const label = st === 'PAID' ? '✓ PAID' : st === 'DECLINED' ? '✕ DECLINED' : 'PENDING';
+        return '<div class="wd-r"><span>' + new Date(i.date).toLocaleDateString() + '</span><span>' +
+            String(i.address).slice(0, 6).replace(/[^0-9a-zA-Z]/g, '') + '...</span><span>-' + Number(i.amount) +
+            '</span><span class="' + cls + '">' + label + '</span></div>';
+    }).join('');
+}
+
+function checkAddr() {
+    const v = document.getElementById('withdraw-address').value.trim();
+    document.getElementById('addr-icon').className =
+        /^0x[a-fA-F0-9]{40}$/.test(v) ? 'fa-solid fa-circle-check ok' : 'fa-solid fa-wallet';
+}
+
+function setMaxWithdraw() {
+    if (S) document.getElementById('withdraw-amount').value = Math.floor(S.balance);
+}
+
+function switchTab(t) {
+    document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+    document.getElementById('tab-' + t).classList.add('active');
+    document.getElementById('nav-' + t).classList.add('active');
+}
+
+async function requestWithdraw() {
+    if (!S || !S.isVerified) { showVerify(); return; }
+    const addr = document.getElementById('withdraw-address').value.trim();
+    const amt = parseFloat(document.getElementById('withdraw-amount').value);
+    if (!addr || !amt) { showToast('Please fill all fields!'); return; }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) { showToast('Invalid BEP-20 wallet address!'); return; }
+    if (amt < 5000) { showToast('Minimum withdrawal is 5000 SHIBA!'); return; }
+
+    const r = await api('/api/withdraw', { amount: amt, address: addr });
+    if (!r.ok) { showToast(r.error || 'Error'); return; }
+    setState(r.data);
+    showToast('Withdrawal request submitted!');
+    document.getElementById('withdraw-amount').value = '';
+    document.getElementById('withdraw-address').value = '';
+    checkAddr();
+}
+</script>
+</body>
+</html>
