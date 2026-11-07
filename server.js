@@ -327,12 +327,11 @@ async function ytSubmit(req, res) {
     // Pehle se koi pending claim ho to doosra submit nahi hoga
     const existing = await PendingClaim.findOne({ userId: u.id });
     if (existing) {
-        return res.json({
-            ok: false,
-            error: existing.task === taskId
-                ? 'Already submitted. Please tap Claim.'
-                : 'Please claim your pending reward first.'
-        });
+        // Same task dobara Submit: error nahi, state wapas bhejo taake UI Claim button dikhaye
+        if (existing.task === taskId) {
+            return res.json({ ok: true, alreadySubmitted: true, data: await userView(u) });
+        }
+        return res.json({ ok: false, error: 'Please claim your pending reward first.', data: await userView(u) });
     }
 
     // unique index userId => race condition mein bhi sirf ek create hoga
