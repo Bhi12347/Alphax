@@ -295,6 +295,7 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 
+const API_BASE = 'https://alphax-ip3i.onrender.com';
 const BOT_USERNAME = 'AlphaXEarnTg_bot';
 const COOLDOWN = 24 * 3600 * 1000;
 const initData = (tg && tg.initData) || '';
@@ -318,7 +319,7 @@ async function api(path, body, retries = 0) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 20000);
         try {
-            const r = await fetch(path, {
+            const r = await fetch(API_BASE + path, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-init-data': initData },
                 body: JSON.stringify(body || {}),
@@ -587,4 +588,4 @@ async function requestWithdraw() {
 }
 </script>
 </body>
-</html>
+    </html>
