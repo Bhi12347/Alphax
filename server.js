@@ -29,8 +29,8 @@ const COOLDOWN = 24 * 60 * 60 * 1000;
 
 // Frontend (index.html) ke CHANNEL_LINKS se SAME rakhna
 const CHANNELS = [
-    { id: '@updatechanneluta', name: 'Channel 1' },
-    { id: '@paymentchanneluta', name: 'Channel 2' }
+    { id: '@cryptotech2.1', name: 'Channel 1' },
+    { id: '@updatechanneluta', name: 'Channel 2' }
 ];
 
 mongoose.connect(MONGO_URI)
@@ -350,14 +350,13 @@ app.post('/api/webhook', async (req, res) => {
                     await User.updateOne({ id: chatId, referredBy: null }, { referredBy: referrer });
                 }
 
-                const kb = [];
-                if (PUBLIC_URL.startsWith('https://')) kb.push([{ text: '🚀 Open AlphaX', web_app: { url: PUBLIC_URL } }]);
-                kb.push([
-                    { text: '📢 Join Channel 1', url: 'https://t.me/updatechanneluta' },
-                    { text: '📢 Join Channel 2', url: 'https://t.me/paymentchanneluta' }
-                ]);
+                // Menu bar mein app already hai, is liye yahan sirf channels
+                const kb = [[
+                    { text: '📢 Join Channel 1', url: 'https://t.me/cryptotech2.1' },
+                    { text: '📢 Join Channel 2', url: 'https://t.me/updatechanneluta' }
+                ]];
                 await sendMsg(chatId,
-                    `🔥 <b>Welcome to AlphaX!</b>\n\n⛏️ Claim <b>1000 SHIBA</b> free every 24 hours.\n🎁 Complete tasks and invite friends to earn <b>500 SHIBA</b> each.\n\n👇 Tap below to start.`,
+                    `🔥 <b>Welcome to AlphaX!</b>\n\n⛏️ Claim <b>1000 SHIBA</b> free every 24 hours.\n🎁 Complete tasks and invite friends to earn <b>500 SHIBA</b> each.\n\n👇 Channels join karein, phir app kholein.`,
                     { inline_keyboard: kb }
                 );
             } else if (text === '/admin' && chatId === ADMIN_ID) {
