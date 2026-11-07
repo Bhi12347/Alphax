@@ -28,10 +28,19 @@ const MIN_WITHDRAW = 5000;
 const COOLDOWN = 24 * 60 * 60 * 1000;
 
 // Frontend (index.html) ke channel links se SAME rakhna (order bhi same)
+// Index 0 aur 1 verification mein check hote hain. Index 2 sirf task 3 ke liye hai.
 const CHANNELS = [
-    { id: '@updatechanneluta', name: 'AlphaX Official' },
-    { id: '@paymentchanneluta', name: 'Payments Channel' }
+    { id: '@updatechanneluta', name: 'Channel 1' },
+    { id: '@paymentchanneluta', name: 'Channel 3' },
+    { id: '@cryptotech16', name: 'Telegram Channel 2' }
 ];
+
+const WELCOME_TEXT = '🔥 <b>Welcome to AlphaX!</b>\n\n' +
+    '⛏️ Claim your Free Rewards every 24 hours.\n\n' +
+    '🎁 Complete tasks and invite friends to earn extra rewards.\n\n' +
+    '💰 Earn more by staying active and completing daily activities.\n\n' +
+    '👇 Join our official channels and then open the bot to get started!\n\n' +
+    '🚀 Start earning with AlphaX today!';
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ MongoDB connected'))
@@ -44,7 +53,11 @@ const User = mongoose.model('User', new mongoose.Schema({
     lastClaimTime: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },
     isBanned: { type: Boolean, default: false },
-    tasks: { task1: { type: Boolean, default: false }, task2: { type: Boolean, default: false } },
+    tasks: {
+        task1: { type: Boolean, default: false },
+        task2: { type: Boolean, default: false },
+        task3: { type: Boolean, default: false }
+    },
     referredBy: { type: String, default: null },
     refCredited: { type: Boolean, default: false },
     referrals: { type: Array, default: [] },
@@ -86,7 +99,7 @@ async function tg(method, body) {
 const sendMsg = (chat_id, text, reply_markup, html = true) =>
     tg('sendMessage', { chat_id, text, reply_markup, ...(html ? { parse_mode: 'HTML' } : {}) });
 
-// true = member, false = not member, null = Telegram error (unverify MAT karna)
+// true = member, false = not member, null = Telegram error
 async function isMember(channel, userId) {
     const r = await tg('getChatMember', { chat_id: channel, user_id: Number(userId) });
     if (!r.ok) {
@@ -97,7 +110,7 @@ async function isMember(channel, userId) {
     return ['member', 'administrator', 'creator'].includes(s) || (s === 'restricted' && r.result.is_member === true);
 }
 
-// returns { ok, missing } ya { error } (error = Telegram issue, user ka fault nahi)
+// returns { ok, missing } ya { error }
 async function checkChannels(userId, idxs = [0, 1]) {
     const missing = [];
     for (const i of idxs) {
@@ -154,7 +167,7 @@ function publicUser(u) {
         lastClaimTime: u.lastClaimTime,
         serverTime: Date.now(),
         isVerified: u.isVerified,
-        tasks: { task1: !!u.tasks.task1, task2: !!u.tasks.task2 },
+        tasks: { task1: !!u.tasks.task1, task2: !!u.tasks.task2, task3: !!u.tasks.task3 },
         referrals: u.referrals,
         withdrawals: u.withdrawals.slice(0, 50)
     };
@@ -175,7 +188,7 @@ app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (req, res) => res.send('OK'));
-app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v2' }));
+app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v3' }));
 
 // ---------- USER API ----------
 
@@ -183,7 +196,6 @@ app.post('/api/me', auth, wrap(async (req, res) => {
     let u = req.user;
     if (u.isVerified) {
         const r = await checkChannels(u.id);
-        // Sirf tab unverify karo jab user sach mein channel chhod chuka ho
         if (r.ok === false) {
             await User.updateOne({ id: u.id }, { isVerified: false });
             u = await User.findOne({ id: u.id });
@@ -195,8 +207,8 @@ app.post('/api/me', auth, wrap(async (req, res) => {
 app.post('/api/verify', auth, wrap(async (req, res) => {
     const u = req.user;
     const r = await checkChannels(u.id);
-    if (r.error) return res.json({ ok: false, error: 'Check abhi nahi ho pa raha, thodi der baad try karo' });
-    if (!r.ok) return res.json({ ok: false, missing: r.missing, error: 'Pehle dono channels join karo: ' + r.missing.join(', ') });
+    if (r.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
+    if (!r.ok) return res.json({ ok: false, missing: r.missing, error: 'Please join first: ' + r.missing.join(', ') });
 
     await User.updateOne({ id: u.id }, { isVerified: true });
 
@@ -220,7 +232,7 @@ app.post('/api/claim', auth, wrap(async (req, res) => {
     if (!req.user.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
 
     const c = await checkChannels(req.user.id);
-    if (c.error) return res.json({ ok: false, error: 'Check abhi nahi ho pa raha, thodi der baad try karo' });
+    if (c.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
     if (!c.ok) {
         await User.updateOne({ id: req.user.id }, { isVerified: false });
         return res.json({ ok: false, error: 'Please join the required channels first!' });
@@ -238,12 +250,13 @@ app.post('/api/claim', auth, wrap(async (req, res) => {
 
 app.post('/api/task', auth, wrap(async (req, res) => {
     const id = Number(req.body.taskId);
-    if (![1, 2].includes(id)) return res.json({ ok: false, error: 'Invalid task' });
+    if (![1, 2, 3].includes(id)) return res.json({ ok: false, error: 'Invalid task' });
     const u = req.user;
     if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
 
+    // Task 1 -> CHANNELS[0], Task 2 -> CHANNELS[1], Task 3 -> CHANNELS[2]
     const r = await checkChannels(u.id, [id - 1]);
-    if (r.error) return res.json({ ok: false, error: 'Check abhi nahi ho pa raha, thodi der baad try karo' });
+    if (r.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
     if (!r.ok) return res.json({ ok: false, error: 'Please join the channel first!' });
 
     const key = `tasks.task${id}`;
@@ -267,14 +280,12 @@ app.post('/api/withdraw', auth, wrap(async (req, res) => {
 
     const reqId = 'wd_' + crypto.randomBytes(6).toString('hex');
 
-    // Step 1: lock (unique userId). Do requests ek saath aayen to doosri yahin fail hogi.
     try {
         await PendingRequest.create({ reqId, userId: u.id, amount: amt, address });
     } catch (e) {
         return res.json({ ok: false, error: 'You already have a pending withdrawal request.' });
     }
 
-    // Step 2: balance kaato
     let upd;
     try {
         upd = await User.findOneAndUpdate(
@@ -301,7 +312,7 @@ app.post('/api/withdraw', auth, wrap(async (req, res) => {
     res.json({ ok: true, data: publicUser(upd) });
 }));
 
-// ---------- WITHDRAW RESOLVE (webhook aur admin panel dono yahin se) ----------
+// ---------- WITHDRAW RESOLVE ----------
 
 async function resolveWithdraw(reqId, approve) {
     const pr = await PendingRequest.findOneAndDelete({ reqId: String(reqId) });
@@ -360,15 +371,13 @@ app.post('/api/webhook', async (req, res) => {
                     await User.updateOne({ id: chatId, referredBy: null }, { referredBy: referrer });
                 }
 
-                // Menu bar mein app already hai, is liye yahan sirf channels
                 const kb = [[
-                    { text: '📢 AlphaX Official', url: 'https://t.me/updatechanneluta' },
-                    { text: '💳 Payments Channel', url: 'https://t.me/paymentchanneluta' }
+                    { text: '📢 Channel 1', url: 'https://t.me/updatechanneluta' },
+                    { text: '💳 Channel 3', url: 'https://t.me/paymentchanneluta' }
+                ], [
+                    { text: '📢 Telegram Channel 2', url: 'https://t.me/cryptotech16' }
                 ]];
-                await sendMsg(chatId,
-                    `🔥 <b>Welcome to AlphaX!</b>\n\n⛏️ Claim <b>1000 SHIBA</b> free every 24 hours.\n🎁 Complete tasks and invite friends to earn <b>500 SHIBA</b> each.\n\n👇 Channels join karein, phir app kholein.`,
-                    { inline_keyboard: kb }
-                );
+                await sendMsg(chatId, WELCOME_TEXT, { inline_keyboard: kb });
             } else if (text === '/admin' && chatId === ADMIN_ID) {
                 await sendMsg(chatId, '👑 <b>AlphaX Admin</b>',
                     PUBLIC_URL ? { inline_keyboard: [[{ text: '🔐 Admin Login Panel', url: `${PUBLIC_URL}/admin/login` }]] } : undefined);
