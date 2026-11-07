@@ -162,11 +162,6 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
             <div class="channel-details"><h5>Join Channel 1</h5><span>@updatechanneluta</span></div></div>
             <i class="fa-solid fa-chevron-right"></i>
         </a>
-        <a href="https://youtube.com/@cryptotech2.1?si=uH5jyLscm2lxMH0n" class="channel-item" onclick="return openChannel(event,this)">
-            <div class="channel-info"><span class="channel-badge"><i class="fa-brands fa-youtube"></i><em>YOUTUBE</em></span>
-            <div class="channel-details"><h5>Subscribe YouTube</h5><span>@cryptotech2.1 (optional)</span></div></div>
-            <i class="fa-solid fa-chevron-right"></i>
-        </a>
         <a href="https://t.me/paymentchanneluta" class="channel-item" onclick="return openChannel(event,this)">
             <div class="channel-info"><span class="channel-badge"><i class="fa-solid fa-bullhorn"></i><em>CHANNEL</em></span>
             <div class="channel-details"><h5>Join Channel 3</h5><span>@paymentchanneluta</span></div></div>
@@ -235,24 +230,16 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
 
         <div class="card">
             <div class="history-item" style="margin-top:5px;">
-                <div><b>Join Channel 1</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
-                <button class="btn btn-green" id="task1-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(1,'https://t.me/updatechanneluta')">Start</button>
-            </div>
-            <div class="history-item" style="margin-top:10px;">
-                <div><b>Join Channel 3</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
-                <button class="btn btn-green" id="task2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(2,'https://t.me/paymentchanneluta')">Start</button>
-            </div>
-            <div class="history-item" style="margin-top:10px;">
                 <div><b>Join Telegram Channel 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
-                <button class="btn btn-green" id="task3-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask(3,'https://t.me/cryptotech16')">Start</button>
+                <button class="btn btn-green" id="task-tg2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask('tg2','https://t.me/cryptotech16')">Start</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#94a3b8;font-weight:bold;">Optional, no reward</span></div>
-                <button class="btn btn-gold" style="width:auto;padding:8px 18px;font-size:11px;" onclick="openLink('https://youtube.com/@cryptotech2.1?si=uH5jyLscm2lxMH0n')">Open</button>
+                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA (screenshot)</span></div>
+                <button class="btn btn-green" id="task-yt1-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleYT('yt1','https://youtube.com/@cryptotech2.1?si=uH5jyLscm2lxMH0n')">Open</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#94a3b8;font-weight:bold;">Optional, no reward</span></div>
-                <button class="btn btn-gold" style="width:auto;padding:8px 18px;font-size:11px;" onclick="openLink('https://youtube.com/@loveallah-r4b?si=a56TmO61cBw8F6tT')">Open</button>
+                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA (screenshot)</span></div>
+                <button class="btn btn-green" id="task-yt2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleYT('yt2','https://youtube.com/@noor-e-eman-j4x?si=5uLYuYOp139kj9sJ')">Open</button>
             </div>
         </div>
     </div>
@@ -314,11 +301,14 @@ if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 
 const API_BASE = 'https://alphax-ip3i.onrender.com';
 const BOT_USERNAME = 'AlphaXEarnTg_bot';
+const BOT_LINK = 'https://t.me/' + BOT_USERNAME;
 const COOLDOWN = 24 * 3600 * 1000;
 const initData = (tg && tg.initData) || '';
 const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
 const userId = tgUser && tgUser.id ? tgUser.id : '';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const TASK_BTN = { tg2: 'task-tg2-btn', yt1: 'task-yt1-btn', yt2: 'task-yt2-btn' };
 
 let S = null;
 let timeOffset = 0;
@@ -518,27 +508,37 @@ function checkMiningTimer() {
 setInterval(checkMiningTimer, 1000);
 
 function updateTaskButtons() {
-    [1, 2, 3].forEach(i => {
-        const b = document.getElementById('task' + i + '-btn');
-        if (S && S.tasks && S.tasks['task' + i]) {
-            b.innerText = 'Claimed';
-            b.className = 'btn btn-disabled';
-        } else if (taskState[i] === 'CHECK') {
-            b.innerText = 'Check';
-            b.className = 'btn btn-dark';
+    Object.keys(TASK_BTN).forEach(id => {
+        const b = document.getElementById(TASK_BTN[id]);
+        const p = S && S.proof && S.proof.task === id ? S.proof : null;
+        let text, cls;
+
+        if (S && S.tasks && S.tasks[id]) {
+            text = 'Claimed'; cls = 'btn btn-disabled';
+        } else if (p && p.status === 'pending') {
+            text = 'Reviewing'; cls = 'btn btn-disabled';
+        } else if (p && p.status === 'awaiting') {
+            text = 'Send Photo'; cls = 'btn btn-dark';
+        } else if (id === 'tg2') {
+            text = taskState[id] === 'CHECK' ? 'Check' : 'Start';
+            cls = taskState[id] === 'CHECK' ? 'btn btn-dark' : 'btn btn-green';
         } else {
-            b.innerText = 'Start';
-            b.className = 'btn btn-green';
+            text = taskState[id] === 'OPEN' ? 'Submit' : 'Open';
+            cls = taskState[id] === 'OPEN' ? 'btn btn-gold' : 'btn btn-green';
         }
+
+        b.innerText = text;
+        b.className = cls;
         b.style.width = 'auto';
         b.style.padding = '8px 18px';
         b.style.fontSize = '11px';
     });
 }
 
+// Telegram Channel 2: Start -> join -> Check (server verify)
 async function handleTask(id, link) {
     if (!S || !S.isVerified) { showVerify(); return; }
-    if (S.tasks['task' + id]) return;
+    if (S.tasks[id]) return;
 
     if (taskState[id] !== 'CHECK') {
         openLink(link);
@@ -550,6 +550,34 @@ async function handleTask(id, link) {
     if (!r.ok) { showToast(r.error || 'Error'); return; }
     setState(r.data);
     showToast('+500 SHIBA claimed!');
+}
+
+// YouTube: Open -> subscribe -> Submit -> bot ko screenshot -> admin approve
+async function handleYT(id, link) {
+    if (!S || !S.isVerified) { showVerify(); return; }
+    if (S.tasks[id]) return;
+
+    const p = S.proof && S.proof.task === id ? S.proof : null;
+    if (p && p.status === 'pending') { showToast('Screenshot under review, please wait.'); return; }
+    if (p && p.status === 'awaiting') {
+        openLink(BOT_LINK);
+        showToast('Send your subscription screenshot to the bot.');
+        return;
+    }
+
+    if (taskState[id] !== 'OPEN') {
+        openLink(link);
+        taskState[id] = 'OPEN';
+        updateTaskButtons();
+        return;
+    }
+
+    const r = await api('/api/proof/start', { taskId: id });
+    if (!r.ok) { showToast(r.error || 'Error'); return; }
+    taskState[id] = null;
+    setState(r.data);
+    openLink(BOT_LINK);
+    showToast('Now send your screenshot to the bot.');
 }
 
 function renderHistory() {
@@ -604,4 +632,4 @@ async function requestWithdraw() {
 }
 </script>
 </body>
-            </html>
+                </html>
