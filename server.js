@@ -26,14 +26,19 @@ const TASK_REWARD = 500;
 const REF_BONUS = 500;
 const MIN_WITHDRAW = 5000;
 const COOLDOWN = 24 * 60 * 60 * 1000;
+const BOT_USERNAME = 'AlphaXEarnTg_bot';
 
-// Frontend (index.html) ke channel links se SAME rakhna (order bhi same)
-// Index 0 aur 1 verification mein check hote hain. Index 2 sirf task 3 ke liye hai.
-const CHANNELS = [
+// Verification ke liye channels (app khulne par dono join hone zaroori)
+const VERIFY_CHANNELS = [
     { id: '@updatechanneluta', name: 'Channel 1' },
-    { id: '@paymentchanneluta', name: 'Channel 3' },
-    { id: '@cryptotech16', name: 'Telegram Channel 2' }
+    { id: '@paymentchanneluta', name: 'Channel 3' }
 ];
+
+// Telegram task (auto verify)
+const TASK_CHANNEL = { id: '@cryptotech16', name: 'Telegram Channel 2' };
+
+// YouTube tasks (screenshot + admin approval)
+const TASK_LABEL = { yt1: 'YouTube 1', yt2: 'YouTube 2' };
 
 const WELCOME_TEXT = '🔥 <b>Welcome to AlphaX!</b>\n\n' +
     '⛏️ Claim your Free Rewards every 24 hours.\n\n' +
@@ -54,9 +59,9 @@ const User = mongoose.model('User', new mongoose.Schema({
     isVerified: { type: Boolean, default: false },
     isBanned: { type: Boolean, default: false },
     tasks: {
-        task1: { type: Boolean, default: false },
-        task2: { type: Boolean, default: false },
-        task3: { type: Boolean, default: false }
+        tg2: { type: Boolean, default: false },
+        yt1: { type: Boolean, default: false },
+        yt2: { type: Boolean, default: false }
     },
     referredBy: { type: String, default: null },
     refCredited: { type: Boolean, default: false },
@@ -66,12 +71,21 @@ const User = mongoose.model('User', new mongoose.Schema({
     createdAt: { type: Number, default: Date.now }
 }));
 
-// userId unique: ek user ki ek waqt mein sirf ek pending request
+// userId unique: ek user ki ek waqt mein sirf ek pending withdrawal
 const PendingRequest = mongoose.model('PendingRequest', new mongoose.Schema({
     reqId: { type: String, required: true, unique: true },
     userId: { type: String, required: true, unique: true },
     amount: { type: Number, required: true },
     address: { type: String, required: true }
+}));
+
+// YouTube proof: ek user ka ek hi active proof (awaiting = screenshot ka intezar, pending = admin review)
+const ProofRequest = mongoose.model('ProofRequest', new mongoose.Schema({
+    userId: { type: String, required: true, unique: true },
+    reqId: { type: String, required: true },
+    task: { type: String, required: true },
+    status: { type: String, default: 'awaiting' },
+    fileId: { type: String, default: null }
 }));
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -110,12 +124,10 @@ async function isMember(channel, userId) {
     return ['member', 'administrator', 'creator'].includes(s) || (s === 'restricted' && r.result.is_member === true);
 }
 
-// returns { ok, missing } ya { error }
-async function checkChannels(userId, idxs = [0, 1]) {
+// Verification: dono channels check. returns { ok, missing } ya { error }
+async function checkVerifyChannels(userId) {
     const missing = [];
-    for (const i of idxs) {
-        const ch = CHANNELS[i];
-        if (!ch) return { error: 'Invalid channel' };
+    for (const ch of VERIFY_CHANNELS) {
         const m = await isMember(ch.id, userId);
         if (m === null) return { error: 'Channel check failed' };
         if (!m) missing.push(ch.name);
@@ -159,7 +171,7 @@ async function auth(req, res, next) {
     }
 }
 
-function publicUser(u) {
+function publicUser(u, proof) {
     return {
         id: u.id,
         username: u.username,
@@ -167,12 +179,21 @@ function publicUser(u) {
         lastClaimTime: u.lastClaimTime,
         serverTime: Date.now(),
         isVerified: u.isVerified,
-        tasks: { task1: !!u.tasks.task1, task2: !!u.tasks.task2, task3: !!u.tasks.task3 },
+        tasks: {
+            tg2: !!(u.tasks && u.tasks.tg2),
+            yt1: !!(u.tasks && u.tasks.yt1),
+            yt2: !!(u.tasks && u.tasks.yt2)
+        },
+        proof: proof ? { task: proof.task, status: proof.status } : null,
         referrals: u.referrals,
         withdrawals: u.withdrawals.slice(0, 50)
     };
 }
-const fresh = async id => publicUser(await User.findOne({ id }));
+
+async function userView(u) {
+    const p = await ProofRequest.findOne({ userId: u.id });
+    return publicUser(u, p);
+}
 
 // CORS: mini app kisi bhi host se khule, API calls kaam karein
 app.use('/api', (req, res, next) => {
@@ -188,25 +209,25 @@ app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (req, res) => res.send('OK'));
-app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v3' }));
+app.get('/api/ping', (req, res) => res.json({ ok: true, version: 'v5' }));
 
 // ---------- USER API ----------
 
 app.post('/api/me', auth, wrap(async (req, res) => {
     let u = req.user;
     if (u.isVerified) {
-        const r = await checkChannels(u.id);
+        const r = await checkVerifyChannels(u.id);
         if (r.ok === false) {
             await User.updateOne({ id: u.id }, { isVerified: false });
             u = await User.findOne({ id: u.id });
         }
     }
-    res.json({ ok: true, data: publicUser(u) });
+    res.json({ ok: true, data: await userView(u) });
 }));
 
 app.post('/api/verify', auth, wrap(async (req, res) => {
     const u = req.user;
-    const r = await checkChannels(u.id);
+    const r = await checkVerifyChannels(u.id);
     if (r.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
     if (!r.ok) return res.json({ ok: false, missing: r.missing, error: 'Please join first: ' + r.missing.join(', ') });
 
@@ -225,13 +246,14 @@ app.post('/api/verify', auth, wrap(async (req, res) => {
             if (ref) sendMsg(ref.id, `🎁 <b>New referral joined!</b>\nUser ID: <code>${esc(u.id)}</code>\n+${REF_BONUS} SHIBA added to your balance.`);
         }
     }
-    res.json({ ok: true, data: await fresh(u.id) });
+    const fresh = await User.findOne({ id: u.id });
+    res.json({ ok: true, data: await userView(fresh) });
 }));
 
 app.post('/api/claim', auth, wrap(async (req, res) => {
     if (!req.user.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
 
-    const c = await checkChannels(req.user.id);
+    const c = await checkVerifyChannels(req.user.id);
     if (c.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
     if (!c.ok) {
         await User.updateOne({ id: req.user.id }, { isVerified: false });
@@ -245,28 +267,54 @@ app.post('/api/claim', auth, wrap(async (req, res) => {
         { new: true }
     );
     if (!u) return res.json({ ok: false, error: 'Not ready yet. Come back later.' });
-    res.json({ ok: true, data: publicUser(u) });
+    res.json({ ok: true, data: await userView(u) });
 }));
 
+// Telegram Channel 2 task: membership server check karta hai
 app.post('/api/task', auth, wrap(async (req, res) => {
-    const id = Number(req.body.taskId);
-    if (![1, 2, 3].includes(id)) return res.json({ ok: false, error: 'Invalid task' });
     const u = req.user;
+    const taskId = String(req.body.taskId || '');
+    if (taskId !== 'tg2') return res.json({ ok: false, error: 'Invalid task' });
     if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
 
-    // Task 1 -> CHANNELS[0], Task 2 -> CHANNELS[1], Task 3 -> CHANNELS[2]
-    const r = await checkChannels(u.id, [id - 1]);
-    if (r.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
-    if (!r.ok) return res.json({ ok: false, error: 'Please join the channel first!' });
+    const m = await isMember(TASK_CHANNEL.id, u.id);
+    if (m === null) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
+    if (!m) return res.json({ ok: false, error: 'Please join the channel first!' });
 
-    const key = `tasks.task${id}`;
     const done = await User.findOneAndUpdate(
-        { id: u.id, [key]: false },
-        { $set: { [key]: true }, $inc: { balance: TASK_REWARD } },
+        { id: u.id, 'tasks.tg2': { $ne: true } },
+        { $set: { 'tasks.tg2': true }, $inc: { balance: TASK_REWARD } },
         { new: true }
     );
     if (!done) return res.json({ ok: false, error: 'Task already claimed.' });
-    res.json({ ok: true, data: publicUser(done) });
+    res.json({ ok: true, data: await userView(done) });
+}));
+
+// YouTube task: user Submit dabata hai, phir bot ko screenshot bhejta hai
+app.post('/api/proof/start', auth, wrap(async (req, res) => {
+    const u = req.user;
+    const taskId = String(req.body.taskId || '');
+    if (!['yt1', 'yt2'].includes(taskId)) return res.json({ ok: false, error: 'Invalid task' });
+    if (!u.isVerified) return res.json({ ok: false, error: 'Please verify channels first.' });
+    if (u.tasks && u.tasks[taskId]) return res.json({ ok: false, error: 'Task already claimed.' });
+
+    try {
+        await ProofRequest.findOneAndUpdate(
+            { userId: u.id, status: { $ne: 'pending' } },
+            {
+                $set: {
+                    task: taskId,
+                    status: 'awaiting',
+                    reqId: 'pf_' + crypto.randomBytes(6).toString('hex'),
+                    fileId: null
+                }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+    } catch (e) {
+        return res.json({ ok: false, error: 'Your previous screenshot is still under review.' });
+    }
+    res.json({ ok: true, data: await userView(u) });
 }));
 
 app.post('/api/withdraw', auth, wrap(async (req, res) => {
@@ -309,7 +357,7 @@ app.post('/api/withdraw', auth, wrap(async (req, res) => {
         `📤 <b>New Withdraw Request</b>\n\n👤 User ID: <code>${esc(u.id)}</code>\n💰 Amount: <b>${amt} SHIBA</b>\n🏦 Address: <code>${esc(address)}</code>`,
         { inline_keyboard: [[{ text: '✅ Approve', callback_data: `approve_${reqId}` }, { text: '❌ Reject', callback_data: `reject_${reqId}` }]] }
     );
-    res.json({ ok: true, data: publicUser(upd) });
+    res.json({ ok: true, data: await userView(upd) });
 }));
 
 // ---------- WITHDRAW RESOLVE ----------
@@ -337,6 +385,25 @@ async function resolveWithdraw(reqId, approve) {
     return { ok: true, pr };
 }
 
+// ---------- YOUTUBE PROOF RESOLVE ----------
+
+async function resolveProof(reqId, approve) {
+    const pr = await ProofRequest.findOneAndDelete({ reqId: String(reqId), status: 'pending' });
+    if (!pr) return { ok: false };
+
+    if (approve) {
+        const key = `tasks.${pr.task}`;
+        await User.updateOne(
+            { id: pr.userId, [key]: { $ne: true } },
+            { $set: { [key]: true }, $inc: { balance: TASK_REWARD } }
+        );
+        sendMsg(pr.userId, `✅ Your ${TASK_LABEL[pr.task]} screenshot is approved. +${TASK_REWARD} SHIBA added!`, undefined, false);
+    } else {
+        sendMsg(pr.userId, `❌ Your ${TASK_LABEL[pr.task]} screenshot was rejected. Please open the app, tap Submit again, and send a clear screenshot.`, undefined, false);
+    }
+    return { ok: true, pr };
+}
+
 // ---------- TELEGRAM WEBHOOK ----------
 
 app.post('/api/webhook', async (req, res) => {
@@ -346,6 +413,7 @@ app.post('/api/webhook', async (req, res) => {
     try {
         const update = req.body;
 
+        // Text messages (/start, /admin)
         if (update.message && update.message.text !== undefined) {
             const msg = update.message;
             const chatId = String(msg.chat.id);
@@ -382,10 +450,60 @@ app.post('/api/webhook', async (req, res) => {
                 await sendMsg(chatId, '👑 <b>AlphaX Admin</b>',
                     PUBLIC_URL ? { inline_keyboard: [[{ text: '🔐 Admin Login Panel', url: `${PUBLIC_URL}/admin/login` }]] } : undefined);
             }
+
+        // Screenshot (YouTube proof)
+        } else if (update.message && Array.isArray(update.message.photo)) {
+            const msg = update.message;
+            const chatId = String(msg.chat.id);
+            if (msg.chat.type !== 'private') return;
+
+            const known = await User.findOne({ id: chatId });
+            if (known && known.isBanned) return;
+
+            const fileId = msg.photo[msg.photo.length - 1].file_id;
+            const p = await ProofRequest.findOneAndUpdate(
+                { userId: chatId, status: 'awaiting' },
+                { $set: { status: 'pending', fileId } },
+                { new: true }
+            );
+            if (!p) {
+                return sendMsg(chatId,
+                    'Please open AlphaX, tap Submit on a YouTube task first, then send the screenshot here.',
+                    undefined, false);
+            }
+
+            await tg('sendPhoto', {
+                chat_id: ADMIN_ID,
+                photo: fileId,
+                caption: `📸 YouTube proof\nTask: ${TASK_LABEL[p.task]}\nUser ID: ${chatId}`,
+                reply_markup: { inline_keyboard: [[
+                    { text: '✅ Approve', callback_data: `pa_${p.reqId}` },
+                    { text: '❌ Reject', callback_data: `pr_${p.reqId}` }
+                ]] }
+            });
+            sendMsg(chatId, '✅ Screenshot received. Admin will review it shortly.', undefined, false);
+
+        // Buttons (withdraw aur proof)
         } else if (update.callback_query) {
             const q = update.callback_query;
             const chatId = String(q.message.chat.id);
             const data = q.data || '';
+
+            const pm = data.match(/^(pa|pr)_(pf_[a-f0-9]+)$/);
+            if (pm) {
+                if (chatId !== ADMIN_ID) return tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Unauthorized!' });
+                const approve = pm[1] === 'pa';
+                const r = await resolveProof(pm[2], approve);
+                if (!r.ok) return tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Already handled!' });
+
+                tg('editMessageCaption', {
+                    chat_id: chatId,
+                    message_id: q.message.message_id,
+                    caption: `${approve ? '✅ Approved' : '❌ Rejected'}\nTask: ${TASK_LABEL[r.pr.task]}\nUser ID: ${r.pr.userId}`
+                });
+                return tg('answerCallbackQuery', { callback_query_id: q.id, text: 'Done!' });
+            }
+
             const m = data.match(/^(approve|reject)_(wd_[a-f0-9]+)$/);
             if (!m) return;
 
