@@ -35,7 +35,7 @@ const YT_CLAIM_DELAY = 10 * 1000;
 // Verification ke liye channels (app khulne par dono join hone zaroori)
 const VERIFY_CHANNELS = [
     { id: '@updatechanneluta', name: 'Channel 1' },
-    { id: '@paymentchanneluta', name: 'Channel 3' }
+    { id: '@paymentchanneluta', name: 'Channel 2' }
 ];
 
 // Telegram task (auto verify)
@@ -147,7 +147,7 @@ async function telegramGuard(user) {
     if (c.error) return 'Could not verify right now, please try again shortly';
     if (!c.ok) {
         await User.updateOne({ id: user.id }, { isVerified: false });
-        return 'Please join the required channels first!';
+        return 'Must join all channels and tap Check again.';
     }
     return null;
 }
@@ -247,7 +247,7 @@ app.post('/api/verify', auth, wrap(async (req, res) => {
     const u = req.user;
     const r = await checkVerifyChannels(u.id);
     if (r.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
-    if (!r.ok) return res.json({ ok: false, missing: r.missing, error: 'Please join first: ' + r.missing.join(', ') });
+    if (!r.ok) return res.json({ ok: false, missing: r.missing, error: 'Must join all channels and tap Check again.' });
 
     await User.updateOne({ id: u.id }, { isVerified: true });
 
@@ -275,7 +275,7 @@ app.post('/api/claim', auth, wrap(async (req, res) => {
     if (c.error) return res.json({ ok: false, error: 'Could not verify right now, please try again shortly' });
     if (!c.ok) {
         await User.updateOne({ id: req.user.id }, { isVerified: false });
-        return res.json({ ok: false, error: 'Please join the required channels first!' });
+        return res.json({ ok: false, error: 'Must join all channels and tap Check again.' });
     }
 
     const now = Date.now();
