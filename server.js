@@ -27,10 +27,10 @@ const REF_BONUS = 500;
 const MIN_WITHDRAW = 5000;
 const COOLDOWN = 24 * 60 * 60 * 1000;
 
-// Frontend (index.html) ke CHANNEL_LINKS se SAME rakhna
+// Frontend (index.html) ke channel links se SAME rakhna (order bhi same)
 const CHANNELS = [
-    { id: '@cryptotech2.1', name: 'Channel 1' },
-    { id: '@updatechanneluta', name: 'Channel 2' }
+    { id: '@updatechanneluta', name: 'AlphaX Official' },
+    { id: '@paymentchanneluta', name: 'Payments Channel' }
 ];
 
 mongoose.connect(MONGO_URI)
@@ -352,8 +352,8 @@ app.post('/api/webhook', async (req, res) => {
 
                 // Menu bar mein app already hai, is liye yahan sirf channels
                 const kb = [[
-                    { text: '📢 Join Channel 1', url: 'https://t.me/cryptotech2.1' },
-                    { text: '📢 Join Channel 2', url: 'https://t.me/updatechanneluta' }
+                    { text: '📢 AlphaX Official', url: 'https://t.me/updatechanneluta' },
+                    { text: '💳 Payments Channel', url: 'https://t.me/paymentchanneluta' }
                 ]];
                 await sendMsg(chatId,
                     `🔥 <b>Welcome to AlphaX!</b>\n\n⛏️ Claim <b>1000 SHIBA</b> free every 24 hours.\n🎁 Complete tasks and invite friends to earn <b>500 SHIBA</b> each.\n\n👇 Channels join karein, phir app kholein.`,
