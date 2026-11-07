@@ -164,7 +164,7 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
         </a>
         <a href="https://youtube.com/@cryptotech2.1?si=A6C0ifRC2he49Rpg" class="channel-item" onclick="return openChannel(event,this)">
             <div class="channel-info"><span class="channel-badge"><i class="fa-brands fa-youtube"></i><em>YOUTUBE</em></span>
-            <div class="channel-details"><h5>Subscribe YouTube</h5><span>Screenshot task</span></div></div>
+            <div class="channel-details"><h5>Subscribe YouTube</h5><span>Support our channel</span></div></div>
             <i class="fa-solid fa-chevron-right"></i>
         </a>
         <a href="https://t.me/paymentchanneluta" class="channel-item" onclick="return openChannel(event,this)">
@@ -239,11 +239,11 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
                 <button class="btn btn-green" id="task-tg2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleTask('tg2','https://t.me/cryptotech16')">Start</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA (screenshot)</span></div>
+                <div><b>Subscribe YouTube</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
                 <button class="btn btn-green" id="task-yt1-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleYT('yt1','https://youtube.com/@cryptotech2.1?si=A6C0ifRC2he49Rpg')">Open</button>
             </div>
             <div class="history-item" style="margin-top:10px;">
-                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA (screenshot)</span></div>
+                <div><b>Subscribe YouTube 2</b><br><span style="font-size:10px;color:#f5c542;font-weight:bold;">+500 SHIBA</span></div>
                 <button class="btn btn-green" id="task-yt2-btn" style="width:auto;padding:8px 18px;font-size:11px;" onclick="handleYT('yt2','https://youtube.com/@noor-e-eman-j4x?si=5uLYuYOp139kj9sJ')">Open</button>
             </div>
         </div>
@@ -306,7 +306,6 @@ if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 
 const API_BASE = 'https://alphax-ip3i.onrender.com';
 const BOT_USERNAME = 'AlphaXEarnTg_bot';
-const BOT_LINK = 'https://t.me/' + BOT_USERNAME;
 const COOLDOWN = 24 * 3600 * 1000;
 const initData = (tg && tg.initData) || '';
 const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
@@ -317,8 +316,9 @@ const TASK_BTN = { tg2: 'task-tg2-btn', yt1: 'task-yt1-btn', yt2: 'task-yt2-btn'
 
 let S = null;
 let timeOffset = 0;
-const taskState = {};
+const taskState = {};   // tg2: 'CHECK' | yt: 'OPEN' (sirf is session ka local step)
 let verifying = false;
+let busy = false;       // double-click / double-request se bachao
 
 document.getElementById('user-display-name').innerText = (tgUser && tgUser.first_name) || 'Free User';
 document.getElementById('user-id-text').innerText = 'ID: ' + (userId || '-');
@@ -512,24 +512,28 @@ function checkMiningTimer() {
 }
 setInterval(checkMiningTimer, 1000);
 
+// Task buttons:
+//  tg2 : Start -> Check -> Claimed
+//  yt  : Open -> Submit -> Claim -> Claimed   (doosra YT task pending ke dauran Locked)
 function updateTaskButtons() {
     Object.keys(TASK_BTN).forEach(id => {
         const b = document.getElementById(TASK_BTN[id]);
-        const p = S && S.proof && S.proof.task === id ? S.proof : null;
+        const pending = S && S.proof ? S.proof.task : null;   // server pending claim
         let text, cls;
 
         if (S && S.tasks && S.tasks[id]) {
             text = 'Claimed'; cls = 'btn btn-disabled';
-        } else if (p && p.status === 'pending') {
-            text = 'Reviewing'; cls = 'btn btn-disabled';
-        } else if (p && p.status === 'awaiting') {
-            text = 'Send Photo'; cls = 'btn btn-dark';
         } else if (id === 'tg2') {
             text = taskState[id] === 'CHECK' ? 'Check' : 'Start';
             cls = taskState[id] === 'CHECK' ? 'btn btn-dark' : 'btn btn-green';
+        } else if (pending === id) {
+            text = 'Claim'; cls = 'btn btn-gold';
+        } else if (pending) {
+            text = 'Locked'; cls = 'btn btn-disabled';
+        } else if (taskState[id] === 'OPEN') {
+            text = 'Submit'; cls = 'btn btn-dark';
         } else {
-            text = taskState[id] === 'OPEN' ? 'Submit' : 'Open';
-            cls = taskState[id] === 'OPEN' ? 'btn btn-gold' : 'btn btn-green';
+            text = 'Open'; cls = 'btn btn-green';
         }
 
         b.innerText = text;
@@ -544,6 +548,7 @@ function updateTaskButtons() {
 async function handleTask(id, link) {
     if (!S || !S.isVerified) { showVerify(); return; }
     if (S.tasks[id]) return;
+    if (busy) return;
 
     if (taskState[id] !== 'CHECK') {
         openLink(link);
@@ -551,25 +556,45 @@ async function handleTask(id, link) {
         updateTaskButtons();
         return;
     }
+    busy = true;
     const r = await api('/api/task', { taskId: id });
+    busy = false;
     if (!r.ok) { showToast(r.error || 'Error'); return; }
     setState(r.data);
     showToast('+500 SHIBA claimed!');
 }
 
-// YouTube: Open -> subscribe -> Submit -> bot ko screenshot -> admin approve
+// YouTube: Open -> (subscribe, wapas aao) -> Submit -> Claim
 async function handleYT(id, link) {
     if (!S || !S.isVerified) { showVerify(); return; }
     if (S.tasks[id]) return;
+    if (busy) return;
 
-    const p = S.proof && S.proof.task === id ? S.proof : null;
-    if (p && p.status === 'pending') { showToast('Screenshot under review, please wait.'); return; }
-    if (p && p.status === 'awaiting') {
-        openLink(BOT_LINK);
-        showToast('Send your subscription screenshot to the bot.');
+    const pending = S.proof ? S.proof.task : null;
+
+    // Doosra task pending ke dauran allowed nahi
+    if (pending && pending !== id) {
+        showToast('Please claim your pending reward first.');
         return;
     }
 
+    // Step 3: Claim
+    if (pending === id) {
+        busy = true;
+        const r = await api('/api/yt/claim', { taskId: id });
+        busy = false;
+        if (!r.ok) {
+            showToast(r.error || 'Error');
+            if (r.data) setState(r.data);
+            return;
+        }
+        taskState[id] = null;
+        setState(r.data);
+        showToast('+500 SHIBA claimed!');
+        return;
+    }
+
+    // Step 1: Open YouTube
     if (taskState[id] !== 'OPEN') {
         openLink(link);
         taskState[id] = 'OPEN';
@@ -577,12 +602,18 @@ async function handleYT(id, link) {
         return;
     }
 
-    const r = await api('/api/proof/start', { taskId: id });
-    if (!r.ok) { showToast(r.error || 'Error'); return; }
+    // Step 2: Submit
+    busy = true;
+    const r = await api('/api/yt/submit', { taskId: id });
+    busy = false;
+    if (!r.ok) {
+        showToast(r.error || 'Error');
+        if (r.data) setState(r.data);
+        return;
+    }
     taskState[id] = null;
     setState(r.data);
-    openLink(BOT_LINK);
-    showToast('Now send your screenshot to the bot.');
+    showToast('Submitted! Now tap Claim.');
 }
 
 function renderHistory() {
