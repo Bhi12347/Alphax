@@ -93,30 +93,53 @@ const PendingClaim = mongoose.model('PendingClaim', new mongoose.Schema({
 
 // ---------- MULTIPLE ACCOUNT DETECTION (1 device = 1 account) ----------
 const DEVICE_LOCK = true;   // false = detection band
-const FP_LOCK = false;      // true = fingerprint se bhi block (app data clear karne wale pakde jayenge, par same model ke phones par galat block ka risk)
+const FP_LOCK = true;       // true = phone ke fingerprint se bhi block (alag Telegram app / app data clear karne wale bhi pakde jayenge). Same model ke 2 alag phones par galat block ka thoda risk, uske liye admin "Reset Device" hai.
 
 const Device = mongoose.model('Device', new mongoose.Schema({
     deviceId: { type: String, required: true, unique: true },
     userId: { type: String, required: true, index: true },
-    fp: { type: String, default: '', index: true },
-    createdAt: { type: Number, default: Date.now }
+    fp: { type: String, default: '', index: true },    // strict fingerprint (hardware + canvas)
+    fp2: { type: String, default: '', index: true },   // hardware-only fingerprint
+    ip: { type: String, default: '' },
+    createdAt: { type: Number, default: Date.now },
+    lastSeen: { type: Number, default: Date.now }
 }));
 
+// IPv6 ke liye pehle 4 groups (/64), IPv4 poora
+function normIp(ip) {
+    ip = String(ip || '').replace(/^::ffff:/, '');
+    if (ip.includes(':')) return ip.split(':').slice(0, 4).join(':');
+    return ip;
+}
+
+// 1 mobile = 1 account. 3 layer:
+//  1) deviceId same                         -> same phone + same app
+//  2) fp (strict fingerprint) same          -> same phone, alag Telegram app / data clear
+//  3) fp2 (hardware) same + IP same         -> same phone, canvas/webview alag ho tab bhi
 // returns null (ok) | 'conflict' | 'missing'
-async function deviceConflict(userId, deviceId, fp) {
+async function deviceConflict(userId, deviceId, fp, fp2, ip) {
     if (!deviceId || deviceId.length < 8 || deviceId.length > 100) return 'missing';
 
     if (FP_LOCK && fp) {
         const other = await Device.findOne({ fp, userId: { $ne: userId } });
         if (other) return 'conflict';
     }
+    if (FP_LOCK && fp2 && ip) {
+        const other = await Device.findOne({ fp2, ip, userId: { $ne: userId } });
+        if (other) return 'conflict';
+    }
 
     let d = await Device.findOne({ deviceId });
     if (!d) {
-        try { d = await Device.create({ deviceId, userId, fp }); }
+        try { d = await Device.create({ deviceId, userId, fp, fp2, ip }); }
         catch (e) { d = await Device.findOne({ deviceId }); }   // race: dusri request ne pehle bana di
     }
     if (d && d.userId !== userId) return 'conflict';
+
+    // owner ka latest fingerprint/IP update rakho
+    if (d && (d.fp !== fp || d.fp2 !== fp2 || d.ip !== ip)) {
+        await Device.updateOne({ deviceId }, { $set: { fp, fp2, ip, lastSeen: Date.now() } });
+    }
     return null;
 }
 
@@ -214,7 +237,9 @@ async function auth(req, res, next) {
             const dev = await deviceConflict(
                 id,
                 String(req.headers['x-device-id'] || '').trim(),
-                String(req.headers['x-device-fp'] || '').trim().slice(0, 64)
+                String(req.headers['x-device-fp'] || '').trim().slice(0, 64),
+                String(req.headers['x-device-fp2'] || '').trim().slice(0, 64),
+                normIp(req.ip)
             );
             if (dev === 'conflict') {
                 return res.status(403).json({ ok: false, code: 'MULTI_ACCOUNT', error: 'Multiple account detected. Only one account per device is allowed.' });
@@ -260,7 +285,7 @@ async function userView(u) {
 // CORS: mini app kisi bhi host se khule, API calls kaam karein
 app.use('/api', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-init-data, x-device-id, x-device-fp');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-init-data, x-device-id, x-device-fp, x-device-fp2');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
