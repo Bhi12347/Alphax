@@ -91,6 +91,35 @@ const PendingClaim = mongoose.model('PendingClaim', new mongoose.Schema({
     createdAt: { type: Number, default: Date.now }
 }));
 
+// ---------- MULTIPLE ACCOUNT DETECTION (1 device = 1 account) ----------
+const DEVICE_LOCK = true;   // false = detection band
+const FP_LOCK = false;      // true = fingerprint se bhi block (app data clear karne wale pakde jayenge, par same model ke phones par galat block ka risk)
+
+const Device = mongoose.model('Device', new mongoose.Schema({
+    deviceId: { type: String, required: true, unique: true },
+    userId: { type: String, required: true, index: true },
+    fp: { type: String, default: '', index: true },
+    createdAt: { type: Number, default: Date.now }
+}));
+
+// returns null (ok) | 'conflict' | 'missing'
+async function deviceConflict(userId, deviceId, fp) {
+    if (!deviceId || deviceId.length < 8 || deviceId.length > 100) return 'missing';
+
+    if (FP_LOCK && fp) {
+        const other = await Device.findOne({ fp, userId: { $ne: userId } });
+        if (other) return 'conflict';
+    }
+
+    let d = await Device.findOne({ deviceId });
+    if (!d) {
+        try { d = await Device.create({ deviceId, userId, fp }); }
+        catch (e) { d = await Device.findOne({ deviceId }); }   // race: dusri request ne pehle bana di
+    }
+    if (d && d.userId !== userId) return 'conflict';
+    return null;
+}
+
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(e => {
     console.log('Error:', e);
@@ -180,6 +209,21 @@ async function auth(req, res, next) {
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
         if (user.isBanned) return res.status(403).json({ ok: false, banned: true, error: 'Your account is banned.' });
+
+        if (DEVICE_LOCK) {
+            const dev = await deviceConflict(
+                id,
+                String(req.headers['x-device-id'] || '').trim(),
+                String(req.headers['x-device-fp'] || '').trim().slice(0, 64)
+            );
+            if (dev === 'conflict') {
+                return res.status(403).json({ ok: false, code: 'MULTI_ACCOUNT', error: 'Multiple account detected. Only one account per device is allowed.' });
+            }
+            if (dev === 'missing') {
+                return res.status(400).json({ ok: false, error: 'Please reopen the app from the bot.' });
+            }
+        }
+
         req.user = user;
         next();
     } catch (e) {
@@ -593,7 +637,8 @@ app.get('/admin/dashboard', checkAdmin, wrap(async (req, res) => {
 <button class="b g" data-act="bal" data-do="add" data-uid="${esc(found.id)}">+ Add</button>
 <button class="b r" data-act="bal" data-do="cut" data-uid="${esc(found.id)}">- Cut</button>
 <button class="b r" data-act="ban" data-do="ban" data-uid="${esc(found.id)}">Ban</button>
-<button class="b g" data-act="ban" data-do="unban" data-uid="${esc(found.id)}">Unban</button></div>
+<button class="b g" data-act="ban" data-do="unban" data-uid="${esc(found.id)}">Unban</button>
+<button class="b" data-act="dev" data-uid="${esc(found.id)}">Reset Device</button></div>
 <div class="row"><input id="smsg" placeholder="Message to this user"><button class="b" data-act="msg" data-uid="${esc(found.id)}">Send</button></div></div>`
         : (q ? '<p style="color:#ef4444">User not found!</p>' : '');
 
@@ -621,6 +666,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-act]
 if(a==='req')d=await post('/admin/action',{reqId:b.dataset.id,action:b.dataset.do});
 else if(a==='bal'){const amount=document.getElementById('amt').value;if(!amount)return alert('Enter amount');d=await post('/admin/balance',{userId:b.dataset.uid,amount,action:b.dataset.do})}
 else if(a==='ban')d=await post('/admin/ban',{userId:b.dataset.uid,action:b.dataset.do});
+else if(a==='dev'){if(!confirm('Reset device lock for this user?'))return;d=await post('/admin/resetdevice',{userId:b.dataset.uid})}
 else if(a==='msg'){const message=document.getElementById('smsg').value;if(!message)return;d=await post('/admin/msg',{userId:b.dataset.uid,message})}
 else if(a==='bc'){const message=document.getElementById('bc').value;if(!message)return;if(!confirm('Send to all users?'))return;d=await post('/admin/broadcast',{message})}
 if(a!=='msg'&&a!=='bc')location.reload()});
@@ -664,6 +710,11 @@ app.post('/admin/ban', checkAdmin, wrap(async (req, res) => {
     if (!u) return res.json({ ok: false, message: 'User not found' });
     sendMsg(u.id, ban ? '🚫 <b>Account Banned</b> by admin.' : '✅ <b>Account Unbanned</b> by admin.');
     res.json({ ok: true, message: ban ? 'User banned' : 'User unbanned' });
+}));
+
+app.post('/admin/resetdevice', checkAdmin, wrap(async (req, res) => {
+    const r = await Device.deleteMany({ userId: String(req.body.userId) });
+    res.json({ ok: true, message: `Device lock reset (${r.deletedCount} device removed).` });
 }));
 
 app.post('/admin/msg', checkAdmin, wrap(async (req, res) => {
