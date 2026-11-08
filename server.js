@@ -112,33 +112,38 @@ function normIp(ip) {
     return ip;
 }
 
-// 1 mobile = 1 account. 3 layer:
-//  1) deviceId same                         -> same phone + same app
-//  2) fp (strict fingerprint) same          -> same phone, alag Telegram app / data clear
-//  3) fp2 (hardware) same + IP same         -> same phone, canvas/webview alag ho tab bhi
+// 1 mobile = 1 account  ->  "pehla account jeetta hai"
+// Is phone se match karne wale (deviceId / fp / fp2+IP) saare records dekhe jate hain.
+//  - Agar koi DOOSRA user is phone par pehle se registered hai (uska record purana hai) -> NAYA user block
+//  - Pehla (sabse purana) user hamesha chalta rahega
 // returns null (ok) | 'conflict' | 'missing'
 async function deviceConflict(userId, deviceId, fp, fp2, ip) {
     if (!deviceId || deviceId.length < 8 || deviceId.length > 100) return 'missing';
 
-    if (FP_LOCK && fp) {
-        const other = await Device.findOne({ fp, userId: { $ne: userId } });
-        if (other) return 'conflict';
-    }
-    if (FP_LOCK && fp2 && ip) {
-        const other = await Device.findOne({ fp2, ip, userId: { $ne: userId } });
-        if (other) return 'conflict';
+    const or = [{ deviceId }];
+    if (FP_LOCK && fp) or.push({ fp });
+    if (FP_LOCK && fp2 && ip) or.push({ fp2, ip });
+
+    const others = await Device.find({ userId: { $ne: userId }, $or: or }, { createdAt: 1 });
+    const mine = await Device.findOne({ deviceId, userId });
+
+    if (others.length) {
+        // is phone par mera record nahi hai => main naya hoon => block
+        if (!mine) return 'conflict';
+        // mera record kisi dusre se naya hai => block, purana hai => main pehla hoon => allow
+        const oldestOther = Math.min(...others.map(o => o.createdAt));
+        if (mine.createdAt >= oldestOther) return 'conflict';
     }
 
-    let d = await Device.findOne({ deviceId });
-    if (!d) {
-        try { d = await Device.create({ deviceId, userId, fp, fp2, ip }); }
-        catch (e) { d = await Device.findOne({ deviceId }); }   // race: dusri request ne pehle bana di
-    }
-    if (d && d.userId !== userId) return 'conflict';
-
-    // owner ka latest fingerprint/IP update rakho
-    if (d && (d.fp !== fp || d.fp2 !== fp2 || d.ip !== ip)) {
-        await Device.updateOne({ deviceId }, { $set: { fp, fp2, ip, lastSeen: Date.now() } });
+    if (!mine) {
+        try { await Device.create({ deviceId, userId, fp, fp2, ip }); }
+        catch (e) {
+            // race: deviceId pehle kisi ne bana di
+            const d = await Device.findOne({ deviceId });
+            if (d && d.userId !== userId) return 'conflict';
+        }
+    } else if (mine.fp !== fp || mine.fp2 !== fp2 || mine.ip !== ip) {
+        await Device.updateOne({ deviceId, userId }, { $set: { fp, fp2, ip, lastSeen: Date.now() } });
     }
     return null;
 }
