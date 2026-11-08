@@ -8,22 +8,92 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
 <style>
-:root{--gold:#f5c542;--brown1:#82502a;--brown2:#5d3719;--maroon1:#6e3044;--maroon2:#4a1f2d;--ink:#241408;--edge:#3a210f}
+:root{--gold:#f5c542;--brown1:#82502a;--brown2:#5d3719;--maroon1:#6e3044;--maroon2:#4a1f2d;--ink:#241408;--edge:#3a210f;--ok:#22c55e;--bad:#f43f5e}
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;user-select:none}
 body{background:#070b16;color:#fff;display:flex;justify-content:center;min-height:100vh;padding:15px 0 110px;overflow-x:hidden}
-.btn,.dash-title,.wd-title,.title-header,.bal-amount,.wd-bal,.live-amt,.ticker,.plan-pill,.task-pill,.nav-item{font-family:'Russo One',-apple-system,"Segoe UI",Roboto,sans-serif}
+.btn,.dash-title,.wd-title,.title-header,.bal-amount,.wd-bal,.live-amt,.ticker,.plan-pill,.task-pill,.nav-item,.ax-title h1,.ax-title h2,.ax-btn,.ax-info b,.ax-tag,.ax-chip{font-family:'Russo One',-apple-system,"Segoe UI",Roboto,sans-serif}
 
 #toast-notification{position:fixed;top:15px;left:50%;transform:translateX(-50%) translateY(-120px);background:#0e1426;color:#fff;padding:14px 18px;border-radius:18px;font-size:13px;font-weight:800;display:flex;align-items:center;gap:12px;border:3px solid var(--gold);z-index:999999999;transition:transform .3s;width:92%;max-width:400px}
 #toast-notification.show{transform:translateX(-50%) translateY(0)}
 #toast-notification i{color:#ffd666;background:rgba(245,197,66,.18);padding:8px;border-radius:50%}
 
-#splash-screen{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:999999998;transition:opacity .5s}
-.loader-ring-box{position:relative;width:170px;height:170px;display:flex;justify-content:center;align-items:center}
-.loader-ring{position:absolute;width:170px;height:170px;border:4px solid #112211;border-top:4px solid #00ff66;border-radius:50%;animation:spin 1s linear infinite}
-.loader-logo-img{width:115px;height:115px;border-radius:50%;object-fit:cover;border:2px solid #00ff66;background:#151b26}
-.loading-text{color:#00ff66;font-size:16px;font-weight:800;letter-spacing:5px;margin-top:35px;animation:pulse 1.5s infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+/* ================= STARTUP ANIMATION (gold) ================= */
+#splash-screen{position:fixed;inset:0;z-index:999999998;background:linear-gradient(160deg,#3a1030 0%,#0b1020 50%,#050810 100%);color:#fff;overflow-y:auto;overflow-x:hidden;transition:opacity .5s;--ax-r1:#f5c542;--ax-r2:#e8a93a}
+#splash-screen.ax-done{--ax-r1:#22c55e;--ax-r2:#4ade80}
+#splash-screen.ax-blocked{--ax-r1:#f43f5e;--ax-r2:#fb7185}
+#ax-bg{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+.ax-glow{position:fixed;width:460px;height:460px;border-radius:50%;filter:blur(120px);opacity:.25;z-index:0;pointer-events:none}
+.ax-g1{background:#c0396b;top:-160px;left:-140px}
+.ax-g2{background:#f5c542;bottom:-200px;right:-160px;opacity:.2}
+.ax-floor{position:fixed;left:-50%;bottom:0;width:200%;height:46%;z-index:0;pointer-events:none;
+  background:linear-gradient(rgba(245,197,66,.18) 1px,transparent 1px) 0 0/60px 60px,linear-gradient(90deg,rgba(245,197,66,.18) 1px,transparent 1px) 0 0/60px 60px;
+  transform:perspective(320px) rotateX(62deg);transform-origin:bottom;
+  -webkit-mask-image:linear-gradient(to top,#000 10%,transparent 90%);mask-image:linear-gradient(to top,#000 10%,transparent 90%);
+  animation:ax-grid 3s linear infinite}
+@keyframes ax-grid{to{background-position:0 60px,60px 0}}
+.ax-page{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 16px 22px;perspective:1100px}
+.ax-stage{position:relative;width:min(36vw,22vh,150px);aspect-ratio:1;margin:34px 0 30px;transform-style:preserve-3d;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .15s ease-out}
+.ax-float{position:absolute;inset:0;transform-style:preserve-3d;animation:ax-floaty 4s ease-in-out infinite}
+@keyframes ax-floaty{0%,100%{transform:translateY(0) rotateY(-8deg)}50%{transform:translateY(-8px) rotateY(8deg)}}
+.ax-ring{position:absolute;border-radius:50%;border:2px solid transparent;transform-style:preserve-3d}
+.ax-ring.r1{inset:-12%;border-top-color:var(--ax-r1);border-bottom-color:var(--ax-r2);animation:ax-s1 6s linear infinite;box-shadow:0 0 22px rgba(245,197,66,.3)}
+.ax-ring.r2{inset:-24%;border-left-color:var(--ax-r2);border-right-color:var(--ax-r1);animation:ax-s2 9s linear infinite}
+.ax-ring.r3{inset:-36%;border-top-color:var(--ax-r1);border-left-color:var(--ax-r2);opacity:.6;animation:ax-s3 13s linear infinite}
+@keyframes ax-s1{from{transform:rotateX(72deg) rotateZ(0)}to{transform:rotateX(72deg) rotateZ(360deg)}}
+@keyframes ax-s2{from{transform:rotateY(72deg) rotateZ(0)}to{transform:rotateY(72deg) rotateZ(-360deg)}}
+@keyframes ax-s3{from{transform:rotateX(58deg) rotateY(38deg) rotateZ(0)}to{transform:rotateX(58deg) rotateY(38deg) rotateZ(360deg)}}
+.ax-ring i{position:absolute;top:-5px;left:50%;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--ax-r1);box-shadow:0 0 12px 3px var(--ax-r1)}
+.ax-core{position:absolute;inset:0;display:grid;place-items:center;transform:translateZ(40px)}
+.ax-core::before{content:"";position:absolute;inset:4%;border-radius:50%;background:radial-gradient(circle,rgba(245,197,66,.5),transparent 70%);filter:blur(12px);animation:ax-breathe 2.6s ease-in-out infinite}
+#splash-screen.ax-done .ax-core::before{background:radial-gradient(circle,rgba(34,197,94,.5),transparent 70%)}
+#splash-screen.ax-blocked .ax-core::before{background:radial-gradient(circle,rgba(244,63,94,.5),transparent 70%)}
+@keyframes ax-breathe{50%{transform:scale(1.25);opacity:.7}}
+.ax-core img{position:relative;width:78%;height:78%;object-fit:contain;filter:drop-shadow(0 6px 18px rgba(245,197,66,.6))}
+.ax-fbbox{display:none;position:relative;width:78%;height:78%;background:#000;border-radius:26%;place-items:center;box-shadow:0 0 0 3px #f5c542,0 0 26px rgba(245,197,66,.4)}
+.ax-fbbox svg{width:70%;height:70%}
+.ax-core.ax-fallback img{display:none}
+.ax-core.ax-fallback .ax-fbbox{display:grid}
+.ax-shadow{position:absolute;left:15%;right:15%;bottom:-34%;height:14%;border-radius:50%;background:radial-gradient(ellipse,rgba(245,197,66,.4),transparent 70%);filter:blur(6px);transform:translateZ(-60px) rotateX(80deg);animation:ax-sh 4s ease-in-out infinite}
+@keyframes ax-sh{50%{transform:translateZ(-60px) rotateX(80deg) scale(.8);opacity:.6}}
+.ax-title{text-align:center;margin-top:4px}
+.ax-title h1{font-size:clamp(22px,6.6vw,30px);letter-spacing:5px;font-weight:400;padding-left:5px;background:linear-gradient(180deg,#fff3b8,#f5c542 60%,#e8a93a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
+.ax-title h2{margin-top:8px;font-size:12px;font-weight:400;letter-spacing:4px;color:#f5c542;padding-left:4px}
+.ax-title p{margin:10px auto 0;max-width:300px;font-size:13px;line-height:1.5;color:#fff}
+.ax-card{width:100%;max-width:420px;margin-top:16px;padding:10px 16px 18px;border-radius:32px;position:relative;overflow:hidden;background:linear-gradient(180deg,var(--brown1),var(--brown2));border:3px solid var(--gold);box-shadow:0 6px 0 var(--edge),0 10px 24px rgba(0,0,0,.5)}
+.ax-card::before{content:"";position:absolute;left:0;top:0;height:2px;width:100%;background:linear-gradient(90deg,transparent,#fbe08a,transparent);animation:ax-scan 2.6s linear infinite}
+@keyframes ax-scan{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.ax-step{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:10px 0;background:var(--ink);border:3px solid var(--gold);border-radius:24px;opacity:.55;transition:opacity .4s}
+.ax-step.active,.ax-step.done,.ax-step.fail{opacity:1}
+.ax-icon{position:relative;width:32px;height:32px;flex:none;border-radius:50%;border:2px solid var(--gold);display:grid;place-items:center;font-weight:800;font-size:14px;transition:all .35s}
+.ax-step.active .ax-icon{border-color:#fbe08a;border-top-color:transparent;animation:ax-spin .8s linear infinite;box-shadow:0 0 14px rgba(245,197,66,.55)}
+.ax-step.done .ax-icon{border-color:var(--ok);background:var(--ok);color:#03180d;animation:none;box-shadow:0 0 16px rgba(34,197,94,.5)}
+.ax-step.done .ax-icon::after{content:"✓"}
+.ax-step.fail .ax-icon{border-color:var(--bad);background:var(--bad);color:#2a0510}
+.ax-step.fail .ax-icon::after{content:"!"}
+@keyframes ax-spin{to{transform:rotate(360deg)}}
+.ax-info{flex:1;min-width:0;text-align:left}
+.ax-info b{display:block;font-size:14px;font-weight:400;color:#fff}
+.ax-info small{display:block;margin-top:3px;font-size:11.5px;font-weight:500;color:#f1d69a}
+.ax-step.done .ax-info small{color:#8cf0a8}
+.ax-step.fail .ax-info small{color:#fb7185}
+.ax-chip{font-size:10px;font-weight:400;padding:4px 10px;border-radius:99px;border:2px solid var(--gold);color:#f5c542;background:var(--ink);white-space:nowrap}
+.ax-step.active .ax-chip{color:#fbe08a}
+.ax-step.done .ax-chip{color:#8cf0a8;background:#17472a;border-color:#4fb36e}
+.ax-step.fail .ax-chip{color:#fb7185;border-color:rgba(244,63,94,.6)}
+.ax-bar{height:12px;margin-top:10px;border-radius:99px;overflow:hidden;background:var(--ink);border:2px solid var(--gold)}
+.ax-bar i{display:block;height:100%;width:0;background:linear-gradient(180deg,#fbe08a,#e8a93a);transition:width .6s ease;box-shadow:0 0 14px rgba(245,197,66,.6)}
+#splash-screen.ax-done .ax-bar i{background:linear-gradient(90deg,#22c55e,#4ade80);box-shadow:0 0 14px var(--ok)}
+#splash-screen.ax-blocked .ax-bar i{background:linear-gradient(90deg,#f43f5e,#fb7185);box-shadow:0 0 14px var(--bad)}
+.ax-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-weight:600;color:#fff}
+.ax-tag{margin-top:18px;font-size:11px;font-weight:400;letter-spacing:4px;color:#f1d69a;text-align:center;padding-left:4px}
+.ax-tag b{color:#f5c542;font-weight:400}
+.ax-btn{margin-top:16px;width:100%;padding:15px;border:0;border-radius:22px;color:#3a2208;font-weight:400;letter-spacing:3px;font-size:14px;background:linear-gradient(180deg,#fbe08a,#e8a93a);box-shadow:0 6px 0 #9a6a17,inset 0 2px 0 rgba(255,255,255,.45);opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .5s,transform .12s;cursor:pointer}
+#splash-screen.ax-ready .ax-btn{opacity:1;transform:none;pointer-events:auto}
+#splash-screen.ax-ready .ax-btn:active{transform:translateY(4px);box-shadow:0 2px 0 #9a6a17}
+#splash-screen .ax-btn:disabled{background:linear-gradient(180deg,#6a4a2a,#4d3219);color:#b79a6e;box-shadow:0 4px 0 #241408}
+.ax-block{display:none;margin-top:14px;padding:12px 14px;border-radius:18px;background:rgba(244,63,94,.15);border:2px solid rgba(244,63,94,.55);color:#fda4af;font-size:12px;line-height:1.5;text-align:center;font-weight:500}
+.ax-block b{font-weight:800;color:#fb7185;font-size:14px}
+/* ================= END STARTUP ANIMATION ================= */
 
 #verification-screen{position:fixed;inset:0;background:linear-gradient(160deg,#3a1030 0%,#0b1020 50%,#050810 100%);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:99999999;padding:20px;text-align:center;overflow-y:auto}
 .verify-logo-box{width:100px;height:100px;background:#000;border-radius:26px;display:flex;justify-content:center;align-items:center;border:3px solid var(--gold);position:relative;z-index:2;box-shadow:0 0 24px rgba(245,197,66,.4);flex-shrink:0}
@@ -32,7 +102,7 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
 .channel-info{display:flex;align-items:center;gap:14px;text-align:left}
 .channel-badge{background:linear-gradient(180deg,#f8d66a,#e8a93a);color:#3a2208;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:12px 8px;font-size:16px}
 .channel-badge em{font-style:normal;font-size:9px;font-weight:900;letter-spacing:1px}
-.channel-details h5{font-size:15px;color:#fff;font-family:'Russo One',sans-serif}
+.channel-details h5{font-size:15px;color:#fff;font-family:'Russo One',sans-serif;font-weight:400}
 .channel-details span{font-size:13px;color:#f1d69a}
 
 .app-container{width:100%;max-width:420px;background:linear-gradient(180deg,#0a0f1d,#070b16);padding:15px;text-align:center;position:relative}
@@ -52,7 +122,7 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
 .card{padding:18px;margin-bottom:15px;text-align:left}
 .card-label{font-size:11px;color:var(--gold);font-weight:900;letter-spacing:2px;display:block}
 
-.btn{border:none;border-radius:22px;text-transform:uppercase;letter-spacing:1px;font-size:14px;padding:16px 14px;width:100%;text-align:center;cursor:pointer;position:relative;transition:transform .08s,box-shadow .08s;box-shadow:0 6px 0 var(--sh,#8a5a12),inset 0 2px 0 rgba(255,255,255,.45)}
+.btn{border:none;border-radius:22px;text-transform:uppercase;letter-spacing:1px;font-size:14px;padding:16px 14px;width:100%;text-align:center;cursor:pointer;position:relative;transition:transform .08s,box-shadow .08s;color:#fff;box-shadow:0 6px 0 var(--sh,#8a5a12),inset 0 2px 0 rgba(255,255,255,.45)}
 .btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--sh,#8a5a12)}
 .btn-gold,#verify-btn{--sh:#9a6a17;background:linear-gradient(180deg,#fbe08a,#e8a93a);color:#3a2208}
 #verify-btn{padding:18px;font-size:15px;margin-top:16px}
@@ -138,13 +208,63 @@ body{background:#070b16;color:#fff;display:flex;justify-content:center;min-heigh
 
 <div id="toast-notification"><i class="fa-solid fa-check"></i><span id="toast-msg">OK</span></div>
 
+<!-- ============ ALPHA X STARTUP ANIMATION ============ -->
 <div id="splash-screen">
-    <div class="loader-ring-box">
-        <div class="loader-ring"></div>
-        <img src="https://cryptologos.cc/logos/shiba-inu-shib-logo.png?v=032" class="loader-logo-img" alt="SHIBA">
+    <canvas id="ax-bg"></canvas>
+    <div class="ax-glow ax-g1"></div><div class="ax-glow ax-g2"></div>
+    <div class="ax-floor"></div>
+
+    <div class="ax-page" id="ax-page">
+        <div class="ax-stage">
+            <div class="ax-float">
+                <div class="ax-ring r1"><i></i></div>
+                <div class="ax-ring r2"><i></i></div>
+                <div class="ax-ring r3"><i></i></div>
+                <div class="ax-core" id="ax-core">
+                    <img id="ax-logo" alt="Alpha X" referrerpolicy="no-referrer">
+                    <div class="ax-fbbox">
+                        <svg viewBox="0 0 100 100">
+                            <polygon points="50,12 88,86 12,86" fill="none" stroke="#39ff14" stroke-width="6" stroke-linejoin="round"/>
+                            <line x1="30" y1="62" x2="70" y2="62" stroke="#39ff14" stroke-width="6"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ax-shadow"></div>
+            </div>
+        </div>
+
+        <div class="ax-title">
+            <h1>ALPHA X BOT</h1>
+            <h2>SECURITY VERIFICATION</h2>
+            <p>Please wait while we complete the verification process.</p>
+        </div>
+
+        <div class="ax-card">
+            <div class="ax-step" id="ax-s1">
+                <div class="ax-icon"></div>
+                <div class="ax-info"><b>Account Status Check</b><small id="ax-t1">Waiting...</small></div>
+                <span class="ax-chip" id="ax-c1">Pending</span>
+            </div>
+            <div class="ax-step" id="ax-s2">
+                <div class="ax-icon"></div>
+                <div class="ax-info"><b>Multiple Account Detection</b><small id="ax-t2">Waiting...</small></div>
+                <span class="ax-chip" id="ax-c2">Pending</span>
+            </div>
+            <div class="ax-step" id="ax-s3">
+                <div class="ax-icon"></div>
+                <div class="ax-info"><b>Launch Bot</b><small id="ax-t3">Waiting...</small></div>
+                <span class="ax-chip" id="ax-c3">Pending</span>
+            </div>
+            <div class="ax-bar"><i id="ax-fill"></i></div>
+            <div class="ax-meta"><span id="ax-phase">Initializing</span><span id="ax-pct">0%</span></div>
+            <div class="ax-block" id="ax-block"><b>⛔ Multiple account detected</b><br>This phone is already linked to another account. Only one account per device is allowed.</div>
+            <button class="ax-btn" id="ax-go">CONTINUE</button>
+        </div>
+
+        <div class="ax-tag">SECURE <b>•</b> FAST <b>•</b> RELIABLE</div>
     </div>
-    <div class="loading-text">LOADING...</div>
 </div>
+<!-- ============ END STARTUP ANIMATION ============ -->
 
 <div id="verification-screen">
     <div class="verify-logo-box">
@@ -309,7 +429,17 @@ const BOT_USERNAME = 'AlphaXEarnTg_bot';
 const COOLDOWN = 24 * 3600 * 1000;
 const initData = (tg && tg.initData) || '';
 const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-const userId = tgUser && tgUser.id ? tgUser.id : '';
+
+// ===== User ID =====
+// Telegram se ID na mile to 777777 dikhegi.
+// Sab users ke liye 777777 dikhana ho to FORCE_TEST_ID = true kar do.
+const TEST_USER_ID = 777777;
+const FORCE_TEST_ID = false;
+const userId = (FORCE_TEST_ID || !(tgUser && tgUser.id)) ? TEST_USER_ID : tgUser.id;
+
+// Startup animation logo (load na ho to bot ka triangle logo dikhega)
+const AX_LOGO = 'https://i.ibb.co/s9wH92Sj/file-0000000009e48208924bcbd2c796ed47.png';
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const TASK_BTN = { tg2: 'task-tg2-btn', yt1: 'task-yt1-btn', yt2: 'task-yt2-btn' };
@@ -319,13 +449,16 @@ let timeOffset = 0;
 const taskState = {};   // tg2: 'CHECK' | yt: 'OPEN' (sirf is session ka local step)
 let verifying = false;
 let busy = false;       // double-click / double-request se bachao
+let BLOCKED = false;    // multiple account mila to sab band
+let DEVICE = { id: '', fp: '', conflict: false };
 
 document.getElementById('user-display-name').innerText = (tgUser && tgUser.first_name) || 'Free User';
-document.getElementById('user-id-text').innerText = 'ID: ' + (userId || '-');
+document.getElementById('user-id-text').innerText = 'ID: ' + userId;
 document.getElementById('ref-link').value = 'https://t.me/' + BOT_USERNAME + '?start=' + userId;
 
 // Server call: timeout, retry (sirf retries > 0 par) aur JSON-safe parsing
 async function api(path, body, retries = 0) {
+    if (BLOCKED) return { ok: false, error: 'Access blocked: multiple accounts on this device.' };
     if (!initData) return { ok: false, error: 'Please open this app from the bot using the "Open AlphaX" button.' };
     for (let attempt = 0; attempt <= retries; attempt++) {
         const ctrl = new AbortController();
@@ -333,7 +466,7 @@ async function api(path, body, retries = 0) {
         try {
             const r = await fetch(API_BASE + path, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-init-data': initData },
+                headers: { 'Content-Type': 'application/json', 'x-init-data': initData, 'x-device-id': DEVICE.id, 'x-device-fp': DEVICE.fp },
                 body: JSON.stringify(body || {}),
                 signal: ctrl.signal
             });
@@ -419,15 +552,228 @@ async function checkVerification() {
     showToast('Verification successful!');
 }
 
+/* =====================================================
+   DEVICE CHECK  (1 phone = 1 account)
+   - Phone par permanent ID (localStorage + IndexedDB) save hoti hai
+   - Us ID ke saath pehla Telegram user "owner" ban jata hai
+   - Doosra Telegram account usi phone par khule to BLOCK
+   - Device ID + fingerprint server ko bhi jata hai (server par bhi check lagao)
+   ===================================================== */
+const DEVICE_LOCK = true;   // false karne se local check band
+
+function axHash(str) {      // chhota hash (cyrb53)
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
+
+function axFingerprint() {  // phone ki hardware/browser pehchan
+    const n = navigator, sc = screen;
+    let gl = '', cv = '';
+    try {
+        const c = document.createElement('canvas');
+        const g = c.getContext('webgl') || c.getContext('experimental-webgl');
+        if (g) {
+            const e = g.getExtension('WEBGL_debug_renderer_info');
+            gl = e ? g.getParameter(e.UNMASKED_VENDOR_WEBGL) + '|' + g.getParameter(e.UNMASKED_RENDERER_WEBGL) : String(g.getParameter(g.RENDERER));
+        }
+    } catch (e) {}
+    try {
+        const c = document.createElement('canvas'); c.width = 220; c.height = 40;
+        const x = c.getContext('2d');
+        x.textBaseline = 'top'; x.font = '16px Arial';
+        x.fillStyle = '#f60'; x.fillRect(10, 5, 80, 25);
+        x.fillStyle = '#069'; x.fillText('AlphaX fp 🐕', 4, 8);
+        cv = axHash(c.toDataURL());
+    } catch (e) {}
+    const tz = (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })();
+    return axHash([Math.min(sc.width, sc.height), Math.max(sc.width, sc.height), sc.colorDepth, window.devicePixelRatio,
+        n.hardwareConcurrency, n.deviceMemory, n.platform, n.maxTouchPoints, tz, n.language, gl, cv].join('|'));
+}
+
+function axIdb() {
+    return new Promise((res, rej) => {
+        const r = indexedDB.open('ax_dev', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+    });
+}
+async function axIdbGet(k) {
+    const d = await axIdb();
+    return new Promise(res => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+}
+async function axIdbSet(k, v) {
+    const d = await axIdb();
+    return new Promise(res => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => res(); });
+}
+
+async function axDevice() {
+    let id = null, owner = null;
+    try { id = localStorage.getItem('ax_did'); owner = localStorage.getItem('ax_owner'); } catch (e) {}
+    try { if (!id) id = await axIdbGet('did'); if (!owner) owner = await axIdbGet('owner'); } catch (e) {}
+    if (!id) id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(16).slice(2));
+
+    const me = tgUser && tgUser.id ? String(tgUser.id) : null;   // asli Telegram user
+    let conflict = false;
+    if (DEVICE_LOCK && me) {
+        if (owner && owner !== me) conflict = true;   // is phone par pehle doosra account tha
+        else owner = me;
+    }
+    try { localStorage.setItem('ax_did', id); if (owner) localStorage.setItem('ax_owner', owner); } catch (e) {}
+    try { await axIdbSet('did', id); if (owner) await axIdbSet('owner', owner); } catch (e) {}
+    return { id: id, fp: axFingerprint(), conflict: conflict };
+}
+
+const devPromise = axDevice()
+    .then(d => { DEVICE = d; return d; })
+    .catch(() => DEVICE);
+
+/* =====================================================
+   ALPHA X STARTUP ANIMATION
+   Server call (/api/me) piche chalti rehti hai.
+   Animation poori hone par CONTINUE dabane se bot khulta hai.
+   ===================================================== */
+function axRunIntro(apiPromise) {
+    const $ = id => document.getElementById(id);
+    const sp = $('splash-screen');
+    const page = $('ax-page');
+    const core = $('ax-core');
+    const img = $('ax-logo');
+
+    img.onerror = () => core.classList.add('ax-fallback');
+    img.src = AX_LOGO;
+
+    function setProgress(p, phase) {
+        $('ax-fill').style.width = p + '%';
+        $('ax-pct').textContent = Math.round(p) + '%';
+        if (phase) $('ax-phase').textContent = phase;
+    }
+    function begin(n, text) {
+        const s = $('ax-s' + n); s.classList.remove('done', 'fail'); s.classList.add('active');
+        $('ax-t' + n).textContent = text; $('ax-c' + n).textContent = 'Running';
+    }
+    function finish(n, text) {
+        const s = $('ax-s' + n); s.classList.remove('active'); s.classList.add('done');
+        $('ax-t' + n).textContent = text; $('ax-c' + n).textContent = 'Passed';
+    }
+    function fail(n, text) {
+        const s = $('ax-s' + n); s.classList.remove('active'); s.classList.add('fail');
+        $('ax-t' + n).textContent = text; $('ax-c' + n).textContent = 'Failed';
+    }
+
+    /* 3D tilt */
+    function tilt(x, y) {
+        page.style.setProperty('--rx', (-((y / innerHeight) - .5) * 2 * 14).toFixed(1) + 'deg');
+        page.style.setProperty('--ry', (((x / innerWidth) - .5) * 2 * 18).toFixed(1) + 'deg');
+    }
+    sp.addEventListener('pointermove', e => tilt(e.clientX, e.clientY));
+    sp.addEventListener('pointerdown', e => tilt(e.clientX, e.clientY));
+    sp.addEventListener('pointerup', () => { page.style.setProperty('--rx', '0deg'); page.style.setProperty('--ry', '0deg'); });
+    function onOrient(ev) {
+        if (!document.getElementById('splash-screen')) { removeEventListener('deviceorientation', onOrient); return; }
+        if (ev.gamma == null) return;
+        page.style.setProperty('--rx', Math.max(-14, Math.min(14, (ev.beta - 50) * .3)).toFixed(1) + 'deg');
+        page.style.setProperty('--ry', Math.max(-18, Math.min(18, ev.gamma * .5)).toFixed(1) + 'deg');
+    }
+    addEventListener('deviceorientation', onOrient);
+
+    /* Particles (gold) */
+    const cv = $('ax-bg'), cx = cv.getContext('2d');
+    let W, H, P = [];
+    function size() {
+        W = cv.width = innerWidth; H = cv.height = innerHeight;
+        P = Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .4, vy: (Math.random() - .5) * .4 }));
+    }
+    addEventListener('resize', size); size();
+    (function tick() {
+        if (!document.getElementById('splash-screen')) return;
+        cx.clearRect(0, 0, W, H);
+        const done = sp.classList.contains('ax-done');
+        for (const p of P) {
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < 0 || p.x > W) p.vx *= -1;
+            if (p.y < 0 || p.y > H) p.vy *= -1;
+            cx.fillStyle = done ? 'rgba(34,197,94,.7)' : 'rgba(245,197,66,.75)';
+            cx.beginPath(); cx.arc(p.x, p.y, 1.5, 0, 6.283); cx.fill();
+        }
+        for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+            const d = Math.hypot(P[i].x - P[j].x, P[i].y - P[j].y);
+            if (d < 110) {
+                cx.strokeStyle = (done ? 'rgba(34,197,94,' : 'rgba(245,197,66,') + (.22 * (1 - d / 110)) + ')';
+                cx.beginPath(); cx.moveTo(P[i].x, P[i].y); cx.lineTo(P[j].x, P[j].y); cx.stroke();
+            }
+        }
+        requestAnimationFrame(tick);
+    })();
+
+    /* Steps */
+    return new Promise(async resolve => {
+        // CONTINUE dabane par server ka result le kar bot kholo
+        $('ax-go').addEventListener('click', async () => {
+            const btn = $('ax-go');
+            btn.disabled = true;
+            btn.textContent = 'LOADING...';
+            resolve(await apiPromise);
+        });
+
+        await sleep(900);
+
+        // 1) Account status (asli server call)
+        begin(1, 'Checking account status...');
+        setProgress(12, 'Account status');
+        const res = await Promise.all([sleep(1500), apiPromise]);
+        const srv = res[1] || {};
+        finish(1, srv.ok ? 'Account verified • Status: Active' : 'Account check complete');
+        setProgress(36);
+
+        // 2) Multiple account detection (asli device check: local + server)
+        begin(2, 'Scanning this device...');
+        setProgress(42, 'Device check');
+        await sleep(1600);
+        const dev = await devPromise;
+        if (dev.conflict || srv.code === 'MULTI_ACCOUNT') {
+            BLOCKED = true;
+            fail(2, 'Multiple account detected');
+            sp.classList.add('ax-blocked');
+            setProgress(42, 'Access denied');
+            $('ax-block').style.display = 'block';
+            resolve({ ok: false, blocked: true });   // CONTINUE nahi aayega, bot yahin band
+            return;
+        }
+        finish(2, 'No duplicate account found');
+        setProgress(68);
+
+        // 3) Launch
+        begin(3, 'Launching Alpha X Bot...');
+        setProgress(80, 'Launching');
+        await sleep(1700);
+        finish(3, 'Bot is online');
+        setProgress(100, 'Verification complete ✓');
+        await sleep(400);
+
+        sp.classList.add('ax-done');
+        sp.classList.add('ax-ready');
+    });
+}
+
 async function startApp() {
-    await sleep(1500);
+    const apiPromise = devPromise.then(() => api('/api/me', null, 3));   // device ID ke saath server call
+    const r = await axRunIntro(apiPromise);          // user CONTINUE dabaye tab tak wait
+    if (r.blocked) return;                           // multiple account: bot yahin band
+
     const splash = document.getElementById('splash-screen');
     if (splash) {
         splash.style.opacity = '0';
         setTimeout(() => splash.remove(), 500);
     }
 
-    const r = await api('/api/me', null, 3);
     if (!r.ok) {
         showVerify();
         showToast(r.error || 'Server error');
