@@ -23,7 +23,7 @@ const WEBHOOK_SECRET = crypto.createHash('sha256').update('wh' + BOT_TOKEN).dige
 
 const DAILY = 1000;
 const TASK_REWARD = 500;
-const REF_BONUS = 500;
+const REF_BONUS = 1000;
 const MIN_WITHDRAW = 5000;
 const COOLDOWN = 24 * 60 * 60 * 1000;
 const BOT_USERNAME = 'AlphaXEarnTg_bot';
