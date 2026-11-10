@@ -203,6 +203,16 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .nav-item.active{color:#fff}
 .nav-item.active i{color:var(--or);filter:drop-shadow(0 0 8px rgba(255,159,28,.8))}
 .nav-mining-btn{width:54px;height:54px;background:var(--g1);border-radius:20px;display:flex;justify-content:center;align-items:center;color:#fff;font-size:22px;margin-top:-28px;border:0;box-shadow:0 8px 26px rgba(236,72,153,.55),0 0 0 5px var(--bg)}
+
+/* ===== LOADER + BLOCKED ===== */
+#ax-loader{position:fixed;inset:0;z-index:999999997;background:#0a0714;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--mu);font-size:13px;font-weight:600}
+.ax-spin{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:var(--or);animation:ax-spin .8s linear infinite}
+#blocked-screen{display:none;position:fixed;inset:0;z-index:1000000000;align-items:center;justify-content:center;padding:20px;background:linear-gradient(160deg,#2a0f3d 0%,#0a0714 55%,#06040d 100%)}
+.bk-box{width:100%;max-width:380px;text-align:center;padding:34px 22px;border-radius:30px;background:rgba(251,77,109,.08);border:1px solid rgba(251,77,109,.5);box-shadow:0 0 50px rgba(251,77,109,.2)}
+.bk-ic{font-size:60px;margin-bottom:12px}
+.bk-box h2{font-size:22px;font-weight:800;color:#fb4d6d;margin-bottom:10px}
+.bk-box p{font-size:13px;line-height:1.6;color:#fda4af}
+.bk-box span{display:inline-block;margin-top:18px;padding:6px 16px;border-radius:99px;border:1px solid rgba(251,77,109,.6);color:#fb4d6d;font-size:11px;font-weight:800;letter-spacing:2px}
 </style>
 </head>
 <body>
@@ -210,7 +220,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 <div id="toast-notification"><i class="fa-solid fa-check"></i><span id="toast-msg">OK</span></div>
 
 <!-- ============ ALPHA X STARTUP ANIMATION ============ -->
-<div id="splash-screen">
+<div id="splash-screen" style="display:none">
     <canvas id="ax-bg"></canvas>
     <div class="ax-glow ax-g1"></div><div class="ax-glow ax-g2"></div>
     <div class="ax-floor"></div>
@@ -266,6 +276,17 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     </div>
 </div>
 <!-- ============ END STARTUP ANIMATION ============ -->
+
+<div id="ax-loader"><div class="ax-spin"></div><p>Loading AlphaX...</p></div>
+
+<div id="blocked-screen">
+    <div class="bk-box">
+        <div class="bk-ic">⛔</div>
+        <h2>Multiple Account Detected</h2>
+        <p>This phone is already linked to another account.<br>Only one account per device is allowed.</p>
+        <span>ACCESS DENIED</span>
+    </div>
+</div>
 
 <div id="verification-screen">
     <div class="verify-logo-box">
@@ -550,6 +571,7 @@ async function checkVerification() {
     setState(r.data);
     hideVerify();
     switchTab('home');
+    axMarkSeen();
     showToast('Verification successful!');
 }
 
@@ -779,26 +801,62 @@ function axRunIntro(apiPromise) {
     });
 }
 
+const $id = id => document.getElementById(id);
+
+// Intro (animation page) sirf pehli baar: verified hoke bot khulne ke baad dobara nahi aayega
+async function axSeen() {
+    let v = null;
+    try { v = localStorage.getItem('ax_seen_' + userId); } catch (e) {}
+    try { if (!v) v = await axIdbGet('seen_' + userId); } catch (e) {}
+    return !!v;
+}
+async function axMarkSeen() {
+    try { localStorage.setItem('ax_seen_' + userId, '1'); } catch (e) {}
+    try { await axIdbSet('seen_' + userId, '1'); } catch (e) {}
+}
+
+// Multiple account: seedha blocked page, bot nahi khulega
+function showBlocked() {
+    BLOCKED = true;
+    ['ax-loader', 'splash-screen', 'verification-screen'].forEach(id => { const e = $id(id); if (e) e.style.display = 'none'; });
+    $id('blocked-screen').style.display = 'flex';
+}
+
 async function startApp() {
-    const apiPromise = devPromise.then(() => api('/api/me', null, 3));   // device ID ke saath server call
-    const r = await axRunIntro(apiPromise);          // user CONTINUE dabaye tab tak wait
-    if (r.blocked) return;                           // multiple account: bot yahin band
+    const dev = await devPromise;
+    const seen = await axSeen();
+    if (dev.conflict) { showBlocked(); return; }          // is phone par pehle doosra account tha
 
-    const splash = document.getElementById('splash-screen');
-    if (splash) {
-        splash.style.opacity = '0';
-        setTimeout(() => splash.remove(), 500);
-    }
+    const r = await api('/api/me', null, 3);              // device ID ke saath server call
+    const loader = $id('ax-loader');
+    if (loader) loader.style.display = 'none';
 
+    if (r.code === 'MULTI_ACCOUNT') { showBlocked(); return; }   // server ne multiple account pakda
+
+    const splash = $id('splash-screen');
     if (!r.ok) {
+        if (splash) splash.remove();
         showVerify();
         showToast(r.error || 'Server error');
         return;
     }
+
+    if (!seen && !r.data.isVerified) {
+        // Sirf naya (abhi tak verify na hua) user: animation page dikhao
+        splash.style.display = 'block';
+        const x = await axRunIntro(Promise.resolve(r));
+        if (x.blocked) { showBlocked(); return; }
+        splash.style.opacity = '0';
+        setTimeout(() => splash.remove(), 500);
+    } else if (splash) {
+        splash.remove();                                  // dobara aane par seedha bot
+    }
+
     setState(r.data);
     if (r.data.isVerified) {
         hideVerify();
         switchTab('home');
+        axMarkSeen();
     } else {
         showVerify();
     }
